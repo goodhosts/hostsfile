@@ -16,7 +16,7 @@ type Hosts struct {
 
 // Return a new instance of ``Hosts`` using the default hosts file path.
 func NewHosts() (Hosts, error) {
-	osHostsFilePath := os.ExpandEnv(filepath.FromSlash(hostsFilePath))
+	osHostsFilePath := os.ExpandEnv(filepath.FromSlash(HostsFilePath))
 
 	if env, isset := os.LookupEnv("HOSTS_PATH"); isset && len(env) > 0 {
 		osHostsFilePath = os.ExpandEnv(filepath.FromSlash(env))

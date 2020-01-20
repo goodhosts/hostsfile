@@ -2,5 +2,5 @@
 
 package hostsfile
 
-const hostsFilePath = "/etc/hosts"
+const HostsFilePath = "/etc/hosts"
 const eol = "\n"
