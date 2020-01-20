@@ -37,11 +37,8 @@ func NewHostsLine(raw string) HostsLine {
 	return output
 }
 
-// Return ```true``` if the line is a comment.
 func (l *HostsLine) IsComment() bool {
-	trimLine := strings.TrimSpace(l.Raw)
-	isComment := strings.HasPrefix(trimLine, commentChar)
-	return isComment
+	return strings.HasPrefix(strings.TrimSpace(l.Raw), commentChar)
 }
 
 func (l *HostsLine) IsValid() bool {
