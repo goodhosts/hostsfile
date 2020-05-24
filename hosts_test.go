@@ -53,7 +53,9 @@ func TestHostsAddWhenIpHasOtherHosts(t *testing.T) {
 	hosts.Lines = []HostsLine{
 		NewHostsLine("127.0.0.1 yadda"), NewHostsLine("10.0.0.7 nada yadda")}
 
-	hosts.Add("10.0.0.7", "brada", "yadda")
+	if err := hosts.Add("10.0.0.7", "brada", "yadda"); err != nil {
+		t.Error(err)
+	}
 
 	expectedLines := []HostsLine{
 		NewHostsLine("127.0.0.1 yadda"), NewHostsLine("10.0.0.7 nada yadda brada")}
@@ -68,7 +70,9 @@ func TestHostsAddWhenIpDoesntExist(t *testing.T) {
 	hosts.Lines = []HostsLine{
 		NewHostsLine("127.0.0.1 yadda")}
 
-	hosts.Add("10.0.0.7", "brada", "yadda")
+	if err := hosts.Add("10.0.0.7", "brada", "yadda"); err != nil {
+		t.Error(err)
+	}
 
 	expectedLines := []HostsLine{
 		NewHostsLine("127.0.0.1 yadda"), NewHostsLine("10.0.0.7 brada yadda")}
@@ -83,7 +87,9 @@ func TestHostsRemoveWhenLastHostIpCombo(t *testing.T) {
 	hosts.Lines = []HostsLine{
 		NewHostsLine("127.0.0.1 yadda"), NewHostsLine("10.0.0.7 nada")}
 
-	hosts.Remove("10.0.0.7", "nada")
+	if err := hosts.Remove("10.0.0.7", "nada"); err != nil {
+		t.Error(err)
+	}
 
 	expectedLines := []HostsLine{NewHostsLine("127.0.0.1 yadda")}
 
@@ -98,7 +104,9 @@ func TestHostsRemoveWhenIpHasOtherHosts(t *testing.T) {
 	hosts.Lines = []HostsLine{
 		NewHostsLine("127.0.0.1 yadda"), NewHostsLine("10.0.0.7 nada brada")}
 
-	hosts.Remove("10.0.0.7", "nada")
+	if err := hosts.Remove("10.0.0.7", "nada"); err != nil {
+		t.Error(err)
+	}
 
 	expectedLines := []HostsLine{
 		NewHostsLine("127.0.0.1 yadda"), NewHostsLine("10.0.0.7 brada")}
@@ -113,7 +121,9 @@ func TestHostsRemoveMultipleEntries(t *testing.T) {
 	hosts.Lines = []HostsLine{
 		NewHostsLine("127.0.0.1 yadda nadda prada")}
 
-	hosts.Remove("127.0.0.1", "yadda", "prada")
+	if err := hosts.Remove("127.0.0.1", "yadda", "prada"); err != nil {
+		t.Error(err)
+	}
 	if hosts.Lines[0].Raw != "127.0.0.1 nadda" {
 		t.Error("Failed to remove multiple entries.")
 	}
@@ -142,7 +152,9 @@ func TestHostsRemoveByHostname(t *testing.T) {
 		NewHostsLine("168.1.1.1 yadda"),
 	}
 
-	hosts.RemoveByHostname("yadda")
+	if err := hosts.RemoveByHostname("yadda"); err != nil {
+		t.Error(err)
+	}
 	// We shouldn't find this entry
 	if hosts.HasHostname("yadda") {
 		t.Error("Found entry that isn't in hosts file.")
@@ -155,7 +167,9 @@ func TestHostsRemoveByHostnameWhenHostnameNotExist(t *testing.T) {
 		NewHostsLine("127.0.0.1 prada"),
 	}
 
-	hosts.RemoveByHostname("yadda")
+	if err := hosts.RemoveByHostname("yadda"); err != nil {
+		t.Error(err)
+	}
 	// We shouldn't find this entry
 	if hosts.HasHostname("yadda") {
 		t.Error("Found entry that isn't in hosts file.")
