@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"github.com/dimchansky/utfbom"
 )
 
 type Hosts struct {
@@ -60,7 +61,7 @@ func (h *Hosts) Load() error {
 	}
 	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
+	scanner := bufio.NewScanner(utfbom.SkipOnly(file))
 	for scanner.Scan() {
 		line := NewHostsLine(scanner.Text())
 		if err != nil {
