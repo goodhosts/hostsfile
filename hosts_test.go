@@ -179,3 +179,41 @@ func TestHostsRemoveByHostnameWhenHostnameNotExist(t *testing.T) {
 		t.Error("Found entry that is in hosts file.")
 	}
 }
+
+func TestHostsLineWithTrailingComment(t *testing.T) {
+	tests := []struct {
+		given    string
+		addIp    string
+		addHost  string
+		expected string
+	}{
+		{
+			given:    "127.0.0.1 prada #comment",
+			addIp:    "127.0.0.1",
+			addHost:  "yadda",
+			expected: "127.0.0.1 prada yadda #comment",
+		},
+		{
+			given:    "127.0.0.1 prada # comment",
+			addIp:    "127.0.0.1",
+			addHost:  "yadda",
+			expected: "127.0.0.1 prada yadda # comment",
+		},
+	}
+
+	for _, test := range tests {
+		hosts := new(Hosts)
+		hosts.Lines = []HostsLine{
+			NewHostsLine(test.given),
+		}
+
+		if err := hosts.Add(test.addIp, test.addHost); err != nil {
+			t.Error(err)
+		}
+
+		if hosts.Lines[0].Raw != test.expected {
+			t.Errorf("Failed to add new host to line with comment: expected '%s' received '%s'",
+				test.expected, hosts.Lines[0].Raw)
+		}
+	}
+}
