@@ -2,11 +2,11 @@ package hostsfile
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"net"
 	"os"
 	"path/filepath"
+
 	"github.com/dimchansky/utfbom"
 )
 
@@ -42,11 +42,7 @@ func NewCustomHosts(osHostsFilePath string) (Hosts, error) {
 // Return ```true``` if hosts file is writable.
 func (h *Hosts) IsWritable() bool {
 	_, err := os.OpenFile(h.Path, os.O_WRONLY, 0660)
-	if err != nil {
-		return false
-	}
-
-	return true
+	return err == nil
 }
 
 // Load the hosts file into ```l.Lines```.
@@ -106,7 +102,7 @@ func (h Hosts) Flush() error {
 // Add an entry to the hosts file.
 func (h *Hosts) Add(ip string, hosts ...string) error {
 	if net.ParseIP(ip) == nil {
-		return errors.New(fmt.Sprintf("%q is an invalid IP address.", ip))
+		return fmt.Errorf("%q is an invalid IP address.", ip)
 	}
 
 	position := h.getIpPosition(ip)
@@ -156,7 +152,7 @@ func (h *Hosts) Remove(ip string, hosts ...string) error {
 	var outputLines []HostsLine
 
 	if net.ParseIP(ip) == nil {
-		return errors.New(fmt.Sprintf("%q is an invalid IP address.", ip))
+		return fmt.Errorf("%q is an invalid IP address.", ip)
 	}
 
 	for _, line := range h.Lines {

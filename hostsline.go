@@ -1,7 +1,6 @@
 package hostsfile
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -27,7 +26,7 @@ func NewHostsLine(raw string) HostsLine {
 	if !output.IsComment() {
 		rawIP := fields[0]
 		if net.ParseIP(rawIP) == nil {
-			output.Err = errors.New(fmt.Sprintf("Bad hosts line: %q", raw))
+			output.Err = fmt.Errorf("Bad hosts line: %q", raw)
 		}
 
 		output.IP = rawIP
@@ -42,17 +41,11 @@ func (l *HostsLine) IsComment() bool {
 }
 
 func (l *HostsLine) IsValid() bool {
-	if l.IP != "" {
-		return true
-	}
-	return false
+	return l.IP != ""
 }
 
 func (l *HostsLine) IsMalformed() bool {
-	if l.Err != nil {
-		return true
-	}
-	return false
+	return l.Err != nil
 }
 
 func (l *HostsLine) RegenRaw() {

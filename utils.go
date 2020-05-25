@@ -2,7 +2,6 @@ package hostsfile
 
 import (
 	"fmt"
-	"strings"
 )
 
 func itemInSlice(item string, list []string) bool {
@@ -24,15 +23,15 @@ func removeFromSlice(s string, slice []string) []string {
 	return nil
 }
 
-func sliceContainsItem(item string, list []string) bool {
-	for _, i := range list {
-		if strings.Contains(i, item) {
-			return true
-		}
-	}
-
-	return false
-}
+//func sliceContainsItem(item string, list []string) bool {
+//	for _, i := range list {
+//		if strings.Contains(i, item) {
+//			return true
+//		}
+//	}
+//
+//	return false
+//}
 
 func buildRawLine(ip string, hosts []string) string {
 	output := ip
