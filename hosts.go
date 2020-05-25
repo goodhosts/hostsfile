@@ -59,12 +59,7 @@ func (h *Hosts) Load() error {
 
 	scanner := bufio.NewScanner(utfbom.SkipOnly(file))
 	for scanner.Scan() {
-		line := NewHostsLine(scanner.Text())
-		if err != nil {
-			return err
-		}
-
-		lines = append(lines, line)
+		lines = append(lines, NewHostsLine(scanner.Text()))
 	}
 
 	if err := scanner.Err(); err != nil {
@@ -88,7 +83,9 @@ func (h Hosts) Flush() error {
 	w := bufio.NewWriter(file)
 
 	for _, line := range h.Lines {
-		fmt.Fprintf(w, "%s%s", line.Raw, eol)
+		if _, err := fmt.Fprintf(w, "%s%s", line.ToRaw(), eol); err != nil {
+			return err
+		}
 	}
 
 	err = w.Flush()
@@ -102,26 +99,29 @@ func (h Hosts) Flush() error {
 // Add an entry to the hosts file.
 func (h *Hosts) Add(ip string, hosts ...string) error {
 	if net.ParseIP(ip) == nil {
-		return fmt.Errorf("%q is an invalid IP address.", ip)
+		return fmt.Errorf("%q is an invalid IP address", ip)
 	}
 
 	position := h.getIpPosition(ip)
 	if position == -1 {
-		endLine := NewHostsLine(buildRawLine(ip, hosts))
-		// Ip line is not in file, so we just append our new line.
-		h.Lines = append(h.Lines, endLine)
+		// ip not already in hostsfile
+		h.Lines = append(h.Lines, HostsLine{
+			Raw:   buildRawLine(ip, hosts),
+			IP:    ip,
+			Hosts: hosts,
+		})
 	} else {
-		// Otherwise, we replace the line in the correct position
-		newHosts := h.Lines[position].Hosts
+		// add new hosts to the correct position for the ip
+		hostsCopy := h.Lines[position].Hosts
 		for _, addHost := range hosts {
-			if itemInSlice(addHost, newHosts) {
-				continue
+			if itemInSlice(addHost, hostsCopy) {
+				continue // host exists for ip already
 			}
 
-			newHosts = append(newHosts, addHost)
+			hostsCopy = append(hostsCopy, addHost)
 		}
-		endLine := NewHostsLine(buildRawLine(ip, newHosts))
-		h.Lines[position] = endLine
+		h.Lines[position].Hosts = hostsCopy
+		h.Lines[position].Raw = h.Lines[position].ToRaw() // reset raw
 	}
 
 	return nil
@@ -129,22 +129,16 @@ func (h *Hosts) Add(ip string, hosts ...string) error {
 
 // Return a bool if ip/host combo in hosts file.
 func (h Hosts) Has(ip string, host string) bool {
-	pos := h.getHostPosition(ip, host)
-
-	return pos != -1
+	return h.getHostPosition(ip, host) != -1
 }
 
 // Return a bool if hostname in hosts file.
 func (h Hosts) HasHostname(host string) bool {
-	pos := h.getHostnamePosition(host)
-
-	return pos != -1
+	return h.getHostnamePosition(host) != -1
 }
 
 func (h Hosts) HasIp(ip string) bool {
-	pos := h.getIpPosition(ip)
-
-	return pos != -1
+	return h.getIpPosition(ip) != -1
 }
 
 // Remove an entry from the hosts file.
@@ -152,7 +146,7 @@ func (h *Hosts) Remove(ip string, hosts ...string) error {
 	var outputLines []HostsLine
 
 	if net.ParseIP(ip) == nil {
-		return fmt.Errorf("%q is an invalid IP address.", ip)
+		return fmt.Errorf("%q is an invalid IP address", ip)
 	}
 
 	for _, line := range h.Lines {
