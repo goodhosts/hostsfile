@@ -217,3 +217,19 @@ func TestHostsLineWithTrailingComment(t *testing.T) {
 		}
 	}
 }
+
+func TestHostsLineWithComments(t *testing.T) {
+	hosts := new(Hosts)
+	hosts.Lines = []HostsLine{
+		NewHostsLine("#This is the first comment"),
+		NewHostsLine("127.0.0.1 prada"),
+		NewHostsLine("#This is the second comment"),
+		NewHostsLine("127.0.0.2 tada #HostLine with trailing comment"),
+		NewHostsLine("#This is third comment"),
+	}
+	for _, hostLine := range hosts.Lines {
+		if hostLine.ToRaw() != hostLine.Raw {
+			t.Errorf("Conversion to Raw String Failed")
+		}
+	}
+}
