@@ -233,3 +233,24 @@ func TestHostsLineWithComments(t *testing.T) {
 		}
 	}
 }
+
+func TestHostsClean(t *testing.T) {
+	hosts := new(Hosts)
+	hosts.Lines = []HostsLine{
+		NewHostsLine("127.0.0.2 prada yadda #comment1"),
+		NewHostsLine("127.0.0.2 tada abba #comment2"),
+	}
+
+	hosts.Clean()
+	if len(hosts.Lines) != 1 {
+		t.Errorf("Clean failed to combine IPs")
+	}
+
+	if hosts.Lines[0].Comment != "comment1, comment2" {
+		t.Errorf("Clean did not update Comment properly")
+	}
+
+	if hosts.Lines[0].ToRaw() != "127.0.0.2 abba prada tada yadda #comment1, comment2" {
+		t.Errorf("Clean did not update Raw properly")
+	}
+}
