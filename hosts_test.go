@@ -246,11 +246,11 @@ func TestHostsClean(t *testing.T) {
 		t.Errorf("Clean failed to combine IPs")
 	}
 
-	if hosts.Lines[0].Comment != "comment1, comment2" {
-		t.Errorf("Clean did not update Comment properly")
+	if hosts.Lines[0].Comment != "comment1 comment2" {
+		t.Errorf("Clean did not update Comment properly: %s", hosts.Lines[0].Comment)
 	}
 
-	if hosts.Lines[0].ToRaw() != "127.0.0.2 abba prada tada yadda #comment1, comment2" {
-		t.Errorf("Clean did not update Raw properly")
+	if hosts.Lines[0].ToRaw() != "127.0.0.2 abba prada tada yadda #comment1 comment2" {
+		t.Errorf("Clean did not update Raw properly: %s", hosts.Lines[0].ToRaw())
 	}
 }
