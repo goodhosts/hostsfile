@@ -170,13 +170,14 @@ func TestHostsRemoveByHostnameWhenHostnameNotExist(t *testing.T) {
 	if err := hosts.RemoveByHostname("yadda"); err != nil {
 		t.Error(err)
 	}
+
 	// We shouldn't find this entry
 	if hosts.HasHostname("yadda") {
 		t.Error("Found entry that isn't in hosts file.")
 	}
 
 	if !hosts.HasHostname("prada") {
-		t.Error("Found entry that is in hosts file.")
+		t.Error("Did not find entry that is in hosts file.")
 	}
 }
 
