@@ -195,7 +195,7 @@ func (h *Hosts) RemoveByHostname(host string) error {
 		}
 
 		if len(line.Hosts) > 0 {
-			_ = append(newLines, line)
+			newLines = append(newLines, line)
 		}
 	}
 	h.Lines = newLines
