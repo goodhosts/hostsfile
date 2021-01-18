@@ -24,7 +24,7 @@ func TestRemoveFromSlice(t *testing.T) {
 	item := "why"
 	list := []string{"why", "hello", "there"}
 	removeFromSlice("why", list)
-	result :=itemInSlice("why", list)
+	result := itemInSlice("why", list)
 	if result {
 		t.Error(fmt.Sprintf("'%s' should not have been found in slice.", item))
 	}
