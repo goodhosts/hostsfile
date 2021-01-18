@@ -187,15 +187,15 @@ func (h *Hosts) Remove(ip string, hosts ...string) error {
 
 // Remove  entries by hostname from the hosts file.
 func (h *Hosts) RemoveByHostname(host string) error {
-	newLines := new []HostLines
-	for pos, line := range h.Lines {
+	newLines := []HostsLine{}
+	for _, line := range h.Lines {
 		if len(line.Hosts) > 0 {
 			line.Hosts = removeFromSlice(host, line.Hosts)
 			line.RegenRaw()
 		}
 
 		if len(line.Hosts) > 0 {
-			append(line, newLines)
+			_ = append(newLines, line)
 		}
 	}
 	h.Lines = newLines
