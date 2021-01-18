@@ -19,3 +19,25 @@ func TestItemInSlice(t *testing.T) {
 		t.Error(fmt.Sprintf("'%s' should have been found in slice.", item))
 	}
 }
+
+func TestRemoveFromSlice(t *testing.T) {
+	item := "why"
+	list := []string{"why", "hello", "there"}
+	removeFromSlice("why", list)
+	result :=itemInSlice("why", list)
+	if result {
+		t.Error(fmt.Sprintf("'%s' should not have been found in slice.", item))
+	}
+
+	item = "hello"
+	result = itemInSlice(item, list)
+	if !result {
+		t.Error(fmt.Sprintf("'%s' should have been found in slice.", item))
+	}
+
+	item = "there"
+	result = itemInSlice(item, list)
+	if !result {
+		t.Error(fmt.Sprintf("'%s' should have been found in slice.", item))
+	}
+}
