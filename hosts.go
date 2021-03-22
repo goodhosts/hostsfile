@@ -120,7 +120,7 @@ func (h *Hosts) Add(ip string, hosts ...string) error {
 		}
 		h.Lines[position].Hosts = hostsCopy
 		h.Lines[position].Raw = h.Lines[position].ToRaw() // reset raw
-		h.HostsPerLine(9) // make sure this does not break on Windows
+		h.HostsPerLine(9)                                 // make sure this does not break on Windows
 	}
 
 	return nil
