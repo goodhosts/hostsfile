@@ -120,6 +120,7 @@ func (h *Hosts) Add(ip string, hosts ...string) error {
 		}
 		h.Lines[position].Hosts = hostsCopy
 		h.Lines[position].Raw = h.Lines[position].ToRaw() // reset raw
+		h.HostsPerLine(9) // make sure this does not break on Windows
 	}
 
 	return nil
@@ -131,7 +132,7 @@ func (h *Hosts) Clean() {
 	h.RemoveDuplicateHosts()
 	h.SortHosts()
 	h.SortByIp()
-	h.HostsPerLine(HostsPerLine)
+	h.HostsPerLine(9)
 }
 
 // Return a bool if ip/host combo in hosts file.
