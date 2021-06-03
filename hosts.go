@@ -43,8 +43,12 @@ func NewCustomHosts(osHostsFilePath string) (Hosts, error) {
 
 // Return ```true``` if hosts file is writable.
 func (h *Hosts) IsWritable() bool {
-	_, err := os.OpenFile(h.Path, os.O_WRONLY, 0660)
-	return err == nil
+	file, err := os.OpenFile(h.Path, os.O_WRONLY, 0660)
+	if err != nil {
+		return false
+	}
+	defer file.Close()
+	return true
 }
 
 // Load the hosts file into ```l.Lines```.
