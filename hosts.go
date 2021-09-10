@@ -129,6 +129,23 @@ func (h *Hosts) Add(ip string, hosts ...string) error {
 	return nil
 }
 
+// AddHostPerLine adds entry of the host in separate line.
+func (h *Hosts) AddHostPerLine(ip string, hosts ...string) error {
+	if net.ParseIP(ip) == nil {
+		return fmt.Errorf("%q is an invalid IP address", ip)
+	}
+
+	for _, host := range hosts {
+		// ip not already in hostsfile
+		h.Lines = append(h.Lines, HostsLine{
+			Raw:   buildRawLine(ip, []string{host}),
+			IP:    ip,
+			Hosts: []string{host},
+		})
+	}
+	return nil
+}
+
 // merge dupelicate ips and hosts per ip
 func (h *Hosts) Clean() {
 	h.RemoveDuplicateIps()

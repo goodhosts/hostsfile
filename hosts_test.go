@@ -255,3 +255,20 @@ func TestHostsClean(t *testing.T) {
 		t.Errorf("Clean did not update Raw properly: %s", hosts.Lines[0].ToRaw())
 	}
 }
+
+func TestAddHostPerLine(t *testing.T) {
+	hosts := new(Hosts)
+	hosts.Lines = []HostsLine{
+		NewHostsLine("127.0.0.1 yadda")}
+
+	if err := hosts.AddHostPerLine("10.0.0.7", "nada", "brada", "yadda"); err != nil {
+		t.Error(err)
+	}
+
+	expectedLines := []HostsLine{
+		NewHostsLine("127.0.0.1 yadda"), NewHostsLine("10.0.0.7 nada"), NewHostsLine("10.0.0.7 brada"), NewHostsLine("10.0.0.7 yadda")}
+
+	if !reflect.DeepEqual(hosts.Lines, expectedLines) {
+		t.Error("Add entry failed to append entry.")
+	}
+}
