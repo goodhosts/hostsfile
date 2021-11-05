@@ -124,6 +124,7 @@ func (h *Hosts) Add(ip string, hosts ...string) error {
 		}
 		h.Lines[position].Hosts = hostsCopy
 		h.Lines[position].Raw = h.Lines[position].ToRaw() // reset raw
+		h.HostsPerLine(HostsPerLine)
 	}
 
 	return nil
