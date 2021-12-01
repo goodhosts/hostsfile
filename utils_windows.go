@@ -1,8 +1,8 @@
 package hostsfile
 
-const (
-	HostsFilePath = "${SystemRoot}/System32/drivers/etc/hosts"
+var (
 	HostsPerLine  = 9
+	HostsFilePath = "${SystemRoot}/System32/drivers/etc/hosts"
 	eol           = "\r\n"
 )
 

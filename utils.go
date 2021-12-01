@@ -2,7 +2,7 @@
 
 package hostsfile
 
-const (
+var (
 	HostsPerLine  = -1 // unlimited
 	HostsFilePath = "/etc/hosts"
 	eol           = "\n"
