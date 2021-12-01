@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/asaskevich/govalidator"
 	"github.com/dimchansky/utfbom"
 )
 
@@ -17,7 +18,7 @@ type Hosts struct {
 	Lines []HostsLine
 }
 
-// Return a new instance of ``Hosts`` using the default hosts file path.
+// NewHosts return a new instance of ``Hosts`` using the default hosts file path.
 func NewHosts() (Hosts, error) {
 	osHostsFilePath := os.ExpandEnv(filepath.FromSlash(HostsFilePath))
 
@@ -28,7 +29,7 @@ func NewHosts() (Hosts, error) {
 	return NewCustomHosts(osHostsFilePath)
 }
 
-// Return a new instance of ``Hosts`` using a custom hosts file path.
+// NewCustomHosts return a new instance of ``Hosts`` using a custom hosts file path.
 func NewCustomHosts(osHostsFilePath string) (Hosts, error) {
 	hosts := Hosts{
 		Path: osHostsFilePath,
@@ -41,7 +42,7 @@ func NewCustomHosts(osHostsFilePath string) (Hosts, error) {
 	return hosts, nil
 }
 
-// Return ```true``` if hosts file is writable.
+// IsWritable return ```true``` if hosts file is writable.
 func (h *Hosts) IsWritable() bool {
 	file, err := os.OpenFile(h.Path, os.O_WRONLY, 0660)
 	if err != nil {
@@ -75,6 +76,7 @@ func (h *Hosts) Load() error {
 
 // Flush any changes made to hosts file.
 func (h Hosts) Flush() error {
+	h.preFlushClean()
 	file, err := os.Create(h.Path)
 	if err != nil {
 		return err
@@ -116,6 +118,9 @@ func (h *Hosts) Add(ip string, hosts ...string) error {
 		// add new hosts to the correct position for the ip
 		hostsCopy := h.Lines[position].Hosts
 		for _, addHost := range hosts {
+			if !govalidator.IsDNSName(addHost) {
+				return fmt.Errorf("hostname is not a valid dns name: %s", addHost)
+			}
 			if itemInSlice(addHost, hostsCopy) {
 				continue // host exists for ip already
 			}
@@ -129,7 +134,7 @@ func (h *Hosts) Add(ip string, hosts ...string) error {
 	return nil
 }
 
-// merge dupelicate ips and hosts per ip
+// Clean merge duplicate ips and hosts per ip
 func (h *Hosts) Clean() {
 	h.RemoveDuplicateIps()
 	h.RemoveDuplicateHosts()
@@ -138,12 +143,12 @@ func (h *Hosts) Clean() {
 	h.HostsPerLine(HostsPerLine)
 }
 
-// Return a bool if ip/host combo in hosts file.
+// Has return a bool if ip/host combo in hosts file.
 func (h Hosts) Has(ip string, host string) bool {
 	return h.getHostPosition(ip, host) != -1
 }
 
-// Return a bool if hostname in hosts file.
+// HasHostname return a bool if hostname in hosts file.
 func (h Hosts) HasHostname(host string) bool {
 	return h.getHostnamePosition(host) != -1
 }
@@ -189,7 +194,7 @@ func (h *Hosts) Remove(ip string, hosts ...string) error {
 	return nil
 }
 
-// Remove  entries by hostname from the hosts file.
+// RemoveByHostname remove entries by hostname from the hosts file.
 func (h *Hosts) RemoveByHostname(host string) error {
 	newLines := []HostsLine{}
 	for _, line := range h.Lines {
@@ -243,7 +248,7 @@ func (h *Hosts) SortHosts() {
 	}
 }
 
-// convert to net.IP and byte.Compare
+// SortByIp convert to net.IP and byte.Compare
 func (h *Hosts) SortByIp() {
 	sortedIps := make([]net.IP, 0, len(h.Lines))
 	for _, l := range h.Lines {
@@ -265,6 +270,8 @@ func (h *Hosts) SortByIp() {
 }
 
 func (h *Hosts) HostsPerLine(count int) {
+	// restacks everything into 1 ip again so we can do the split, do this even if count is -1 so it can reset the slice
+	h.RemoveDuplicateIps()
 	if count <= 0 {
 		return
 	}
@@ -281,6 +288,7 @@ func (h *Hosts) HostsPerLine(count int) {
 			if end > i+count {
 				end = i + count
 			}
+
 			lineCopy.Hosts = line.Hosts[i:end]
 			lineCopy.Raw = lineCopy.ToRaw()
 			newLines = append(newLines, lineCopy)
@@ -364,4 +372,13 @@ func (h Hosts) getIpPosition(ip string) int {
 	}
 
 	return -1
+}
+
+func buildRawLine(ip string, hosts []string) string {
+	output := ip
+	for _, host := range hosts {
+		output = fmt.Sprintf("%s %s", output, host)
+	}
+
+	return output
 }

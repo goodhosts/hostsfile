@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestHostsLineIsComment(t *testing.T) {
@@ -254,4 +256,27 @@ func TestHostsClean(t *testing.T) {
 	if hosts.Lines[0].ToRaw() != "127.0.0.2 abba prada tada yadda #comment1 comment2" {
 		t.Errorf("Clean did not update Raw properly: %s", hosts.Lines[0].ToRaw())
 	}
+}
+
+func TestHosts_Add(t *testing.T) {
+	hosts := new(Hosts)
+	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))  // valid use with variatic args
+	assert.Error(t, assert.AnError, hosts.Add("127.0.0.2", "host11 host12 host13 host14 host15 host16 host17 host18 hosts19 hosts20")) // invalid use
+	assert.Len(t, hosts.Lines, 1)
+	assert.Nil(t, hosts.Add("127.0.0.3", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
+	assert.Len(t, hosts.Lines, 2)
+	assert.Error(t, assert.AnError, hosts.Add("127.0.0.3", "invalid hostname"))
+	assert.Error(t, assert.AnError, hosts.Add("127.0.0.3", ".invalid*hostname"))
+}
+
+func TestHosts_HostsPerLine(t *testing.T) {
+	hosts := new(Hosts)
+	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
+	assert.Nil(t, hosts.Add("127.0.0.2", "host11", "host12", "host13", "host14", "host15", "host16", "host17", "host18", "host19", "hosts20"))
+	hosts.HostsPerLine(1)
+	assert.Len(t, hosts.Lines, 20)
+	hosts.HostsPerLine(2)
+	assert.Len(t, hosts.Lines, 10)
+	hosts.HostsPerLine(9) // windows
+	assert.Len(t, hosts.Lines, 3)
 }
