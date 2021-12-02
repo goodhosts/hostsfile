@@ -1,43 +1,31 @@
 package hostsfile
 
 import (
-	"fmt"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestItemInSlice(t *testing.T) {
-	item := "this"
-	list := []string{"hello", "brah"}
-	result := itemInSlice("goodbye", list)
-	if result {
-		t.Error(fmt.Sprintf("'%s' should not have been found in slice.", item))
-	}
+	liststring := []string{"hello", "brah"}
+	assert.True(t, itemInSliceString("hello", liststring))
+	assert.False(t, itemInSliceString("goodbye", liststring))
 
-	item = "hello"
-	result = itemInSlice(item, list)
-	if !result {
-		t.Error(fmt.Sprintf("'%s' should have been found in slice.", item))
-	}
+	intlist := []int{1, 2}
+	assert.True(t, itemInSliceInt(2, intlist))
+	assert.False(t, itemInSliceInt(3, intlist))
 }
 
 func TestRemoveFromSlice(t *testing.T) {
-	item := "why"
-	list := []string{"why", "hello", "there"}
-	removeFromSlice("why", list)
-	result := itemInSlice("why", list)
-	if result {
-		t.Error(fmt.Sprintf("'%s' should not have been found in slice.", item))
-	}
+	stringlist := []string{"why", "hello", "there"}
+	removeFromSliceString("why", stringlist)
+	assert.False(t, itemInSliceString("why", stringlist))
+	assert.True(t, itemInSliceString("hello", stringlist))
+	assert.True(t, itemInSliceString("there", stringlist))
 
-	item = "hello"
-	result = itemInSlice(item, list)
-	if !result {
-		t.Error(fmt.Sprintf("'%s' should have been found in slice.", item))
-	}
-
-	item = "there"
-	result = itemInSlice(item, list)
-	if !result {
-		t.Error(fmt.Sprintf("'%s' should have been found in slice.", item))
-	}
+	intlist := []int{1, 2, 3}
+	removeFromSliceInt(2, intlist)
+	assert.False(t, itemInSliceInt(2, intlist))
+	assert.True(t, itemInSliceInt(1, intlist))
+	assert.True(t, itemInSliceInt(3, intlist))
 }
