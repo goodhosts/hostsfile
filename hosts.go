@@ -72,6 +72,13 @@ func (h *Hosts) Load() error {
 	}
 	defer file.Close()
 
+	// if you're reloading from disk confirm you refresh the hash maps and lines
+	if len(h.Lines) != 0 {
+		h.ips = lookup{l: make(map[string][]int)}
+		h.hosts = lookup{l: make(map[string][]int)}
+		h.Lines = []HostsLine{}
+	}
+
 	scanner := bufio.NewScanner(utfbom.SkipOnly(file))
 	for scanner.Scan() {
 		hl := NewHostsLine(scanner.Text())
