@@ -263,3 +263,21 @@ func benchmarkHosts_Flush(c int, b *testing.B) {
 	assert.Nil(b, hosts.Flush())
 	assert.Nil(b, os.Remove("hostsfile"))
 }
+
+func TestHosts_Flush(t *testing.T) {
+	f, err := os.Create("hostsfile")
+	defer func() {
+		assert.Nil(t, f.Close())
+		assert.Nil(t, os.Remove("hostsfile"))
+	}()
+
+	assert.Nil(t, err)
+	hosts, err := NewCustomHosts("./hostsfile")
+	assert.Nil(t, err)
+	assert.Nil(t, hosts.Add("127.0.0.2", "host1"))
+	assert.Equal(t, 1, len(hosts.Lines))
+	assert.Equal(t, "127.0.0.2 host1", hosts.Lines[0].Raw)
+	assert.Nil(t, hosts.Flush())
+	assert.Equal(t, 1, len(hosts.Lines))
+	assert.Equal(t, "127.0.0.2 host1", hosts.Lines[0].Raw)
+}
