@@ -47,7 +47,7 @@ func TestHosts_Has(t *testing.T) {
 
 func TestHostsAddWhenIpHasOtherHosts(t *testing.T) {
 	expectedLines := []HostsLine{
-		NewHostsLine("127.0.0.1 yadda"), NewHostsLine("10.0.0.7 nada yadda brada")}
+		NewHostsLine("10.0.0.7 nada yadda brada")}
 
 	hosts := newHosts()
 	assert.Nil(t, hosts.Add("127.0.0.1", "yadda"))
@@ -58,7 +58,7 @@ func TestHostsAddWhenIpHasOtherHosts(t *testing.T) {
 
 func TestHostsAddWhenIpDoesntExist(t *testing.T) {
 	expectedLines := []HostsLine{
-		NewHostsLine("127.0.0.1 yadda"), NewHostsLine("10.0.0.7 brada yadda")}
+		NewHostsLine("10.0.0.7 brada yadda")}
 
 	hosts := newHosts()
 	assert.Nil(t, hosts.AddRaw("127.0.0.1 yadda"))
@@ -178,7 +178,7 @@ func TestHosts_Add(t *testing.T) {
 	assert.Error(t, assert.AnError, hosts.Add("127.0.0.2", "host11 host12 host13 host14 host15 host16 host17 host18 hosts19 hosts20")) // invalid use
 	assert.Len(t, hosts.Lines, 1)
 	assert.Nil(t, hosts.Add("127.0.0.3", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
-	assert.Len(t, hosts.Lines, 2)
+	assert.Len(t, hosts.Lines, 1)
 	assert.Error(t, assert.AnError, hosts.Add("127.0.0.3", "invalid hostname"))
 	assert.Error(t, assert.AnError, hosts.Add("127.0.0.3", ".invalid*hostname"))
 

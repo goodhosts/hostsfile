@@ -149,6 +149,19 @@ func (h *Hosts) Add(ip string, hosts ...string) error {
 		return fmt.Errorf("%q is an invalid IP address", ip)
 	}
 
+	// remove hosts from other ips if it already exists
+	for _, host := range hosts {
+		for _, p := range h.getHostPositions(host) {
+			if h.Lines[p].IP == ip {
+				continue
+			}
+
+			if err := h.Remove(h.Lines[p].IP, host); err != nil {
+				return err
+			}
+		}
+	}
+
 	position := h.getIpPositions(ip)
 	if len(position) == 0 {
 		nl := HostsLine{
