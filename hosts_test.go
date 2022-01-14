@@ -3,6 +3,7 @@ package hostsfile
 import (
 	"math/rand"
 	"os"
+	"path/filepath"
 	"reflect"
 	"sync"
 	"testing"
@@ -27,6 +28,41 @@ func newHosts() Hosts {
 		hosts: lookup{l: make(map[string][]int)},
 	}
 }
+
+func Test_NewHosts(t *testing.T) {
+	hosts, err := NewHosts()
+	assert.NoError(t, err)
+	assert.NotEqual(t, "", hosts.Path)
+
+	// test env var
+	expected := os.ExpandEnv(filepath.FromSlash("./test"))
+	f, err := os.Create(expected)
+	assert.Nil(t, err)
+	defer func() {
+		f.Close()
+		os.Remove(expected)
+	}()
+
+	os.Setenv("HOSTS_PATH", expected)
+	hosts, err = NewHosts()
+	assert.NoError(t, err)
+	assert.Equal(t, expected, hosts.Path)
+
+	// test is writeable
+	assert.True(t, hosts.IsWritable())
+	hosts.Path = "./noexist"
+	assert.False(t, hosts.IsWritable())
+
+	// test bad load
+	assert.Error(t, hosts.Load())
+}
+
+func Test_NewCustomHosts(t *testing.T) {
+	// bad file
+	_, err := NewCustomHosts("./noexist")
+	assert.Error(t, err)
+}
+
 func TestHostsLineIsComment(t *testing.T) {
 	comment := "   # This is a comment   "
 	line := NewHostsLine(comment)
@@ -45,9 +81,9 @@ func TestHosts_Has(t *testing.T) {
 	assert.False(t, hosts.Has("10.0.0.7", "shuda"))
 }
 
-func TestHostsAddWhenIpHasOtherHosts(t *testing.T) {
+func TestHosts_AddWhenIpHasOtherHosts(t *testing.T) {
 	expectedLines := []HostsLine{
-		NewHostsLine("127.0.0.1 yadda"), NewHostsLine("10.0.0.7 nada yadda brada")}
+		NewHostsLine("10.0.0.7 nada yadda brada")}
 
 	hosts := newHosts()
 	assert.Nil(t, hosts.Add("127.0.0.1", "yadda"))
@@ -56,9 +92,9 @@ func TestHostsAddWhenIpHasOtherHosts(t *testing.T) {
 	assert.True(t, reflect.DeepEqual(hosts.Lines, expectedLines))
 }
 
-func TestHostsAddWhenIpDoesntExist(t *testing.T) {
+func TestHosts_AddWhenIpDoesntExist(t *testing.T) {
 	expectedLines := []HostsLine{
-		NewHostsLine("127.0.0.1 yadda"), NewHostsLine("10.0.0.7 brada yadda")}
+		NewHostsLine("10.0.0.7 brada yadda")}
 
 	hosts := newHosts()
 	assert.Nil(t, hosts.AddRaw("127.0.0.1 yadda"))
@@ -66,30 +102,35 @@ func TestHostsAddWhenIpDoesntExist(t *testing.T) {
 	assert.True(t, reflect.DeepEqual(hosts.Lines, expectedLines))
 }
 
-func TestHostsRemoveWhenLastHostIpCombo(t *testing.T) {
+func TestHosts_Remove(t *testing.T) {
+	// when last host ip combo
 	expectedLines := []HostsLine{NewHostsLine("127.0.0.1 yadda")}
 
 	hosts := newHosts()
 	assert.Nil(t, hosts.AddRaw("127.0.0.1 yadda", "10.0.0.7 nada"))
 	assert.Nil(t, hosts.Remove("10.0.0.7", "nada"))
 	assert.True(t, reflect.DeepEqual(hosts.Lines, expectedLines))
-}
 
-func TestHostsRemoveWhenIpHasOtherHosts(t *testing.T) {
-	expectedLines := []HostsLine{
+	// when ip has other hosts
+	expectedLines = []HostsLine{
 		NewHostsLine("127.0.0.1 yadda"), NewHostsLine("10.0.0.7 brada")}
 
-	hosts := newHosts()
+	hosts = newHosts()
 	assert.Nil(t, hosts.AddRaw("127.0.0.1 yadda", "10.0.0.7 nada brada"))
 	assert.Nil(t, hosts.Remove("10.0.0.7", "nada"))
 	assert.True(t, reflect.DeepEqual(hosts.Lines, expectedLines))
-}
 
-func TestHostsRemoveMultipleEntries(t *testing.T) {
-	hosts := newHosts()
+	// remove multiple entries
+	hosts = newHosts()
 	assert.Nil(t, hosts.AddRaw("127.0.0.1 yadda nadda prada"))
 	assert.Nil(t, hosts.Remove("127.0.0.1", "yadda", "prada"))
 	assert.Equal(t, hosts.Lines[0].Raw, "127.0.0.1 nadda")
+
+	// nothing to remove
+	assert.Nil(t, hosts.Remove("127.0.0.1"))
+
+	// remove bad ip
+	assert.Error(t, hosts.Remove("not an ip"))
 }
 
 func TestHosts_HasHostname(t *testing.T) {
@@ -98,6 +139,17 @@ func TestHosts_HasHostname(t *testing.T) {
 	assert.Nil(t, hosts.Add("10.0.0.7", "nada"))
 	assert.True(t, hosts.HasHostname("nada"))
 	assert.False(t, hosts.HasHostname("shuda"))
+}
+
+func TestHosts_RemoveByIp(t *testing.T) {
+	hosts := newHosts()
+	assert.Nil(t, hosts.Add("127.0.0.1", "yadda"))
+	assert.Nil(t, hosts.Add("10.0.0.7", "nada"))
+
+	assert.Nil(t, hosts.RemoveByIp("192.168.1.1"))
+	assert.Len(t, hosts.Lines, 2)
+	assert.Nil(t, hosts.RemoveByIp("127.0.0.1"))
+	assert.Len(t, hosts.Lines, 1)
 }
 
 func TestHosts_RemoveByHostname(t *testing.T) {
@@ -121,7 +173,14 @@ func TestHosts_RemoveByHostname(t *testing.T) {
 	assert.False(t, hosts.HasHostname("yadda"))
 }
 
-func TestHostsLineWithTrailingComment(t *testing.T) {
+func TestHosts_HasIp(t *testing.T) {
+	hosts := newHosts()
+	assert.Nil(t, hosts.Add("127.0.0.1", "yadda"))
+	assert.Nil(t, hosts.Add("168.1.1.1", "yadda"))
+	assert.True(t, hosts.HasIp("127.0.0.1"))
+}
+
+func TestHosts_LineWithTrailingComment(t *testing.T) {
 	tests := []struct {
 		given    string
 		addIp    string
@@ -150,7 +209,7 @@ func TestHostsLineWithTrailingComment(t *testing.T) {
 	}
 }
 
-func TestHostsLineWithComments(t *testing.T) {
+func TestHosts_LineWithComments(t *testing.T) {
 	hosts := newHosts()
 	assert.Nil(t, hosts.AddRaw("#This is the first comment",
 		"127.0.0.1 prada",
@@ -178,7 +237,7 @@ func TestHosts_Add(t *testing.T) {
 	assert.Error(t, assert.AnError, hosts.Add("127.0.0.2", "host11 host12 host13 host14 host15 host16 host17 host18 hosts19 hosts20")) // invalid use
 	assert.Len(t, hosts.Lines, 1)
 	assert.Nil(t, hosts.Add("127.0.0.3", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
-	assert.Len(t, hosts.Lines, 2)
+	assert.Len(t, hosts.Lines, 1)
 	assert.Error(t, assert.AnError, hosts.Add("127.0.0.3", "invalid hostname"))
 	assert.Error(t, assert.AnError, hosts.Add("127.0.0.3", ".invalid*hostname"))
 
@@ -187,6 +246,15 @@ func TestHosts_Add(t *testing.T) {
 	assert.Nil(t, hosts.AddRaw("127.0.0.1 tom.test", "127.0.0.1 tom.test example.test"))
 	assert.Nil(t, hosts.Add("127.0.0.1", "example.test"))
 	assert.Equal(t, hosts.Lines[0].Raw, "127.0.0.1 tom.test")
+
+	// call with no hosts
+	hosts = newHosts()
+	assert.Nil(t, hosts.AddRaw("127.0.0.1 yadda", "10.0.0.7 nada"))
+	hosts.Lines[1] = HostsLine{
+		IP:    "not an ip",
+		Hosts: []string{"nada"},
+	}
+	assert.Error(t, hosts.Add("192.168.1.1", "nada"))
 }
 
 func TestHosts_HostsPerLine(t *testing.T) {
@@ -199,6 +267,8 @@ func TestHosts_HostsPerLine(t *testing.T) {
 	assert.Len(t, hosts.Lines, 10)
 	hosts.HostsPerLine(9) // windows
 	assert.Len(t, hosts.Lines, 3)
+	hosts.HostsPerLine(50) // all in one
+	assert.Len(t, hosts.Lines, 1)
 }
 
 func BenchmarkHosts_Add10k(b *testing.B) {
@@ -280,4 +350,8 @@ func TestHosts_Flush(t *testing.T) {
 	assert.Nil(t, hosts.Flush())
 	assert.Equal(t, 1, len(hosts.Lines))
 	assert.Equal(t, "127.0.0.2 host1", hosts.Lines[0].Raw)
+
+	// bad path can't write
+	hosts.Path = ""
+	assert.Error(t, hosts.Flush())
 }

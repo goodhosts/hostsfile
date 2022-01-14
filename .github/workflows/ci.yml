@@ -15,7 +15,9 @@ jobs:
       - name: Validate and Test
         env:
           GOROOT: ""
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         run: |
           curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s v1.43.0
           ./bin/golangci-lint run
-          go test -v .
+          go test -v  -coverprofile="coverage.txt" .
+          bash <(curl -s https://codecov.io/bash)

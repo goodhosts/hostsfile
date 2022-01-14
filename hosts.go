@@ -100,7 +100,6 @@ func (h *Hosts) Flush() error {
 	if err != nil {
 		return err
 	}
-
 	defer file.Close()
 
 	w := bufio.NewWriter(file)
@@ -110,8 +109,7 @@ func (h *Hosts) Flush() error {
 		}
 	}
 
-	err = w.Flush()
-	if err != nil {
+	if err := w.Flush(); err != nil {
 		return err
 	}
 
@@ -147,6 +145,19 @@ func (h *Hosts) AddRaw(raw ...string) error {
 func (h *Hosts) Add(ip string, hosts ...string) error {
 	if net.ParseIP(ip) == nil {
 		return fmt.Errorf("%q is an invalid IP address", ip)
+	}
+
+	// remove hosts from other ips if it already exists
+	for _, host := range hosts {
+		for _, p := range h.getHostPositions(host) {
+			if h.Lines[p].IP == ip {
+				continue
+			}
+
+			if err := h.Remove(h.Lines[p].IP, host); err != nil {
+				return err
+			}
+		}
 	}
 
 	position := h.getIpPositions(ip)
@@ -226,13 +237,17 @@ func (h *Hosts) HasIp(ip string) bool {
 
 // Remove an entry from the hosts file.
 func (h *Hosts) Remove(ip string, hosts ...string) error {
-	var outputLines []HostsLine
 	if net.ParseIP(ip) == nil {
 		return fmt.Errorf("%q is an invalid IP address", ip)
 	}
 
+	if len(hosts) == 0 {
+		return nil // no point in trying
+	}
+
+	var outputLines []HostsLine
 	for _, line := range h.Lines {
-		// Bad lines or comments just get readded.
+		// Bad lines or comments just get re-added.
 		if line.Err != nil || line.IsComment() || line.IP != ip {
 			outputLines = append(outputLines, line)
 			continue
@@ -275,12 +290,12 @@ func (h *Hosts) RemoveByHostname(host string) error {
 	return nil
 }
 
+// RemoveByIp this got refactored and wont return an error any more
+// leaving it for stable api purposes, will be removed in a major release
 func (h *Hosts) RemoveByIp(ip string) error {
 	pos := h.getIpPositions(ip)
-	for len(pos) > 0 {
-		for _, p := range pos {
-			h.removeByPosition(p)
-		}
+	for _, p := range pos {
+		h.removeByPosition(p)
 	}
 
 	return nil
