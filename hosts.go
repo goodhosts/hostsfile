@@ -398,8 +398,8 @@ func (h *Hosts) removeByPosition(pos int) {
 		h.Clear()
 		return
 	}
-	if pos == len(h.Lines) {
-		h.Lines = h.Lines[:pos-1]
+	if pos == len(h.Lines)-1 {
+		h.Lines = h.Lines[:pos]
 		return
 	}
 	h.Lines = append(h.Lines[:pos], h.Lines[pos+1:]...)
