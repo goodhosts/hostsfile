@@ -177,6 +177,32 @@ func TestHosts_RemoveByHostname(t *testing.T) {
 	assert.True(t, hosts.HasHostname("yadda"))
 	assert.Nil(t, hosts.RemoveByHostname("yadda"))
 	assert.False(t, hosts.HasHostname("yadda"))
+
+	// remove hostname and clean up the IP address if
+	// it was the only name/alias on the line
+	hosts = newHosts()
+	assert.Nil(t, hosts.Add("127.0.0.1", "yadda"))
+	assert.Nil(t, hosts.Add("168.1.1.1", "prada"))
+	assert.Nil(t, hosts.Add("1.2.3.4", "foo", "bar"))
+
+	assert.Nil(t, hosts.RemoveByHostname("yadda"))
+	assert.Len(t, hosts.Lines, 2)
+	assert.True(t, hosts.HasHostname("prada"))
+	assert.True(t, hosts.HasHostname("foo"))
+	assert.True(t, hosts.HasHostname("bar"))
+	assert.Equal(t, hosts.hosts.l["prada"], []int{0})
+	assert.Equal(t, hosts.hosts.l["foo"], []int{1})
+	assert.Equal(t, hosts.hosts.l["bar"], []int{1})
+
+	assert.Nil(t, hosts.RemoveByHostname("foo"))
+	assert.Len(t, hosts.Lines, 2)
+	assert.True(t, hosts.HasHostname("prada"))
+	assert.True(t, hosts.HasHostname("bar"))
+
+	assert.Nil(t, hosts.RemoveByHostname("bar"))
+	assert.Len(t, hosts.Lines, 1)
+	assert.True(t, hosts.HasHostname("prada"))
+	assert.Equal(t, hosts.hosts.l["prada"], []int{0})
 }
 
 func TestHosts_HasIp(t *testing.T) {
