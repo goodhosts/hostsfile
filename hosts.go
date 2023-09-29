@@ -380,8 +380,6 @@ func (h *Hosts) SortByIp() {
 func (h *Hosts) HostsPerLine(count int) {
 	// restacks everything into 1 ip again so we can do the split, do this even if count is -1 so it can reset the slice
 	h.RemoveDuplicateIps()
-
-	// counts lower than 1 are invalid
 	if count <= 0 {
 		return
 	}
@@ -485,6 +483,13 @@ func (h *Hosts) addHostPositions(host string, pos int) {
 	h.hosts.Lock()
 	defer h.hosts.Unlock()
 	h.hosts.l[host] = append(h.hosts.l[host], pos)
+}
+
+func (h *Hosts) removeHostPositions(host string, pos int) {
+	h.hosts.Lock()
+	defer h.hosts.Unlock()
+	positions := h.hosts.l[host]
+	h.hosts.l[host] = removeFromSliceInt(pos, positions)
 }
 
 func (h *Hosts) getIpPositions(ip string) []int {

@@ -220,8 +220,16 @@ func TestHosts_RemoveByIp(t *testing.T) {
 	// remove nothing
 	assert.Nil(t, hosts.RemoveByIp("192.168.1.1"))
 	assert.Len(t, hosts.Lines, 4)
+	assert.Len(t, hosts.ips.l, 4)
+	assert.Len(t, hosts.hosts.l, 4)
+
+	// remove 1
 	assert.Nil(t, hosts.RemoveByIp("10.0.0.255"))
 	assert.Len(t, hosts.Lines, 3)
+	assert.Len(t, hosts.ips.l, 3)
+	assert.Len(t, hosts.hosts.l, 3)
+
+	// remove 1
 	assert.Nil(t, hosts.RemoveByIp("10.0.0.7"))
 	assert.Len(t, hosts.Lines, 2)
 	assert.Len(t, hosts.ips.l, 2)
@@ -233,11 +241,11 @@ func TestHosts_RemoveByIp(t *testing.T) {
 	assert.Len(t, hosts.ips.l, 1)
 	assert.Len(t, hosts.hosts.l, 1)
 
-	// empty
+	// remove 0
 	assert.Nil(t, hosts.RemoveByIp("10.0.0.7"))
-	assert.Len(t, hosts.Lines, 0)
-	assert.Len(t, hosts.ips.l, 0)
-	assert.Len(t, hosts.hosts.l, 0)
+	assert.Len(t, hosts.Lines, 1)
+	assert.Len(t, hosts.ips.l, 1)
+	assert.Len(t, hosts.hosts.l, 1)
 }
 
 func TestHosts_RemoveByHostname(t *testing.T) {
