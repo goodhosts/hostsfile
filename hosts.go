@@ -27,7 +27,7 @@ type Hosts struct {
 	hosts lookup
 }
 
-// NewHosts return a new instance of “Hosts“ using the default hosts file path.
+// NewHosts return a new instance of Hosts using the default hosts file path.
 func NewHosts() (*Hosts, error) {
 	osHostsFilePath := os.ExpandEnv(filepath.FromSlash(HostsFilePath))
 
@@ -38,7 +38,7 @@ func NewHosts() (*Hosts, error) {
 	return NewCustomHosts(osHostsFilePath)
 }
 
-// NewCustomHosts return a new instance of “Hosts“ using a custom hosts file path.
+// NewCustomHosts return a new instance of Hosts using a custom hosts file path.
 func NewCustomHosts(osHostsFilePath string) (*Hosts, error) {
 	hosts := &Hosts{
 		Path:  osHostsFilePath,
@@ -80,7 +80,7 @@ func (h *Hosts) loadString(content string) error {
 	return scanner.Err()
 }
 
-// IsWritable return ```true``` if hosts file is writable.
+// IsWritable return true if hosts file is writable.
 func (h *Hosts) IsWritable() bool {
 	file, err := os.OpenFile(h.Path, os.O_WRONLY, 0660)
 	if err != nil {
@@ -90,8 +90,8 @@ func (h *Hosts) IsWritable() bool {
 	return true
 }
 
-// Load the hosts file into ```l.Lines```.
-// ```Load()``` is called by ```NewHosts()``` and ```Hosts.Flush()``` so you
+// Load the hosts file into l.Lines.
+// Load() is called by NewHosts() and Hosts.Flush() so you
 // generally you won't need to call this yourself.
 func (h *Hosts) Load() error {
 	file, err := os.Open(h.Path)
