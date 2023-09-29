@@ -290,11 +290,28 @@ func (h *Hosts) Remove(ip string, hosts ...string) error {
 
 // RemoveByHostname remove entries by hostname from the hosts file.
 func (h *Hosts) RemoveByHostname(host string) error {
-	for _, p := range h.getHostPositions(host) {
-		line := &h.Lines[p]
-		if len(line.Hosts) > 0 {
-			line.Hosts = removeFromSliceString(host, line.Hosts)
-			line.RegenRaw()
+	restart := true
+	for restart {
+		restart = false
+		for _, p := range h.getHostPositions(host) {
+			line := &h.Lines[p]
+			if len(line.Hosts) > 0 {
+				line.Hosts = removeFromSliceString(host, line.Hosts)
+				line.RegenRaw()
+			}
+			h.removeHostPositions(host, p)
+
+			// cleanup the whole line if there remains an IP address
+			// without hostname/alias
+			if len(line.Hosts) == 0 {
+				h.removeByPosition(p)
+				// when an entry in the lines array is removed
+				// the range from getHostPositions() above is
+				// outdated. Therefore the whole procedure needs
+				// to restart over again
+				restart = true
+				break
+			}
 		}
 	}
 
@@ -363,6 +380,8 @@ func (h *Hosts) SortByIp() {
 func (h *Hosts) HostsPerLine(count int) {
 	// restacks everything into 1 ip again so we can do the split, do this even if count is -1 so it can reset the slice
 	h.RemoveDuplicateIps()
+
+	// counts lower than 1 are invalid
 	if count <= 0 {
 		return
 	}
