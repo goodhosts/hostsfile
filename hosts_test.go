@@ -87,6 +87,17 @@ ff02::3 `); err != nil {
 	return h
 }
 
+func Test_DefaultHosts(t *testing.T) {
+	mac := newMacOSXDefault()
+	assert.Len(t, mac.Lines, 9)
+
+	win := newWindowsDefault()
+	assert.Len(t, win.Lines, 20)
+
+	pve := newProxmoxDefault()
+	assert.Len(t, pve.Lines, 6)
+}
+
 func Test_NewHosts(t *testing.T) {
 	hosts, err := NewHosts()
 	assert.NoError(t, err)
@@ -204,10 +215,23 @@ func TestHosts_RemoveByIp(t *testing.T) {
 	assert.Nil(t, hosts.Add("127.0.0.1", "yadda"))
 	assert.Nil(t, hosts.Add("10.0.0.7", "nada"))
 
+	// remove nothing
 	assert.Nil(t, hosts.RemoveByIp("192.168.1.1"))
 	assert.Len(t, hosts.Lines, 2)
+	assert.Len(t, hosts.ips.l, 2)
+	assert.Len(t, hosts.hosts.l, 2)
+
+	// remove 1
 	assert.Nil(t, hosts.RemoveByIp("127.0.0.1"))
 	assert.Len(t, hosts.Lines, 1)
+	assert.Len(t, hosts.ips.l, 1)
+	assert.Len(t, hosts.hosts.l, 1)
+
+	// empty
+	assert.Nil(t, hosts.RemoveByIp("10.0.0.7"))
+	assert.Len(t, hosts.Lines, 0)
+	assert.Len(t, hosts.ips.l, 0)
+	assert.Len(t, hosts.hosts.l, 0)
 }
 
 func TestHosts_RemoveByHostname(t *testing.T) {
