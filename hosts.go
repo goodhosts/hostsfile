@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 
 	"github.com/asaskevich/govalidator"
@@ -26,7 +27,7 @@ type Hosts struct {
 	hosts lookup
 }
 
-// NewHosts return a new instance of ``Hosts`` using the default hosts file path.
+// NewHosts return a new instance of “Hosts“ using the default hosts file path.
 func NewHosts() (*Hosts, error) {
 	osHostsFilePath := os.ExpandEnv(filepath.FromSlash(HostsFilePath))
 
@@ -37,7 +38,7 @@ func NewHosts() (*Hosts, error) {
 	return NewCustomHosts(osHostsFilePath)
 }
 
-// NewCustomHosts return a new instance of ``Hosts`` using a custom hosts file path.
+// NewCustomHosts return a new instance of “Hosts“ using a custom hosts file path.
 func NewCustomHosts(osHostsFilePath string) (*Hosts, error) {
 	hosts := &Hosts{
 		Path:  osHostsFilePath,
@@ -50,6 +51,33 @@ func NewCustomHosts(osHostsFilePath string) (*Hosts, error) {
 	}
 
 	return hosts, nil
+}
+
+// String get a string of the contents of the contents to put in the hosts file
+func (h *Hosts) String() string {
+	buf := new(bytes.Buffer)
+	for _, line := range h.Lines {
+		if _, err := fmt.Fprintf(buf, "%s%s", line.ToRaw(), eol); err != nil {
+			// unlikely we will error during writing to a string buffer? maybe we dont need to do anything here
+		}
+	}
+	return buf.String()
+}
+
+// loadString is a helper function for testing but if we want to expose it some how it's probably safe
+func (h *Hosts) loadString(content string) error {
+	rdr := strings.NewReader(content)
+	scanner := bufio.NewScanner(utfbom.SkipOnly(rdr))
+	for scanner.Scan() {
+		hl := NewHostsLine(scanner.Text())
+		h.Lines = append(h.Lines, hl)
+		pos := len(h.Lines) - 1
+		h.addIpPosition(hl.IP, pos)
+		for _, host := range hl.Hosts {
+			h.addHostPositions(host, pos)
+		}
+	}
+	return scanner.Err()
 }
 
 // IsWritable return ```true``` if hosts file is writable.
@@ -201,6 +229,8 @@ func (h *Hosts) Add(ip string, hosts ...string) error {
 
 func (h *Hosts) Clear() {
 	h.Lines = []HostsLine{}
+	h.ips = lookup{l: make(map[string][]int)}
+	h.hosts = lookup{l: make(map[string][]int)}
 }
 
 // Clean merge duplicate ips and hosts per ip
@@ -354,26 +384,42 @@ func (h *Hosts) HostsPerLine(count int) {
 	if count <= 0 {
 		return
 	}
-	var newLines []HostsLine
-	for _, line := range h.Lines {
+
+	// make a local copy
+	lines := make([]HostsLine, len(h.Lines))
+	copy(lines, h.Lines)
+
+	// clear the lines and position indexes to start over
+	h.Clear()
+
+	for ln, line := range lines {
 		if len(line.Hosts) <= count {
-			newLines = append(newLines, line)
+			for _, host := range line.Hosts {
+				h.addHostPositions(host, ln)
+			}
+			h.addIpPosition(line.IP, ln)
+			h.Lines = append(h.Lines, line)
 			continue
 		}
 
-		for i := 0; i < len(line.Hosts); i += count {
+		// i: index of the host, j: offset for line number
+		for i, j := 0, 0; i < len(line.Hosts); i, j = i+count, j+1 {
 			lineCopy := line
 			end := len(line.Hosts)
 			if end > i+count {
 				end = i + count
 			}
 
+			for _, host := range line.Hosts {
+				h.addHostPositions(host, ln+j)
+			}
+			h.addIpPosition(line.IP, ln+j)
+
 			lineCopy.Hosts = line.Hosts[i:end]
 			lineCopy.Raw = lineCopy.ToRaw()
-			newLines = append(newLines, lineCopy)
+			h.Lines = append(h.Lines, lineCopy)
 		}
 	}
-	h.Lines = newLines
 }
 
 func (h *Hosts) combineIp(ip string) {

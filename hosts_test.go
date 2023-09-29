@@ -22,11 +22,69 @@ func randomString(n int) string {
 	return string(s)
 }
 
-func newHosts() Hosts {
-	return Hosts{
+func newHosts() *Hosts {
+	return &Hosts{
 		ips:   lookup{l: make(map[string][]int)},
 		hosts: lookup{l: make(map[string][]int)},
 	}
+}
+
+func newMacOSXDefault() *Hosts {
+	h := newHosts()
+	if err := h.loadString(`##
+# Host Database
+#
+# localhost is used to configure the loopback interface
+# when the system is booting.  Do not change this entry.
+##
+127.0.0.1	localhost
+255.255.255.255	broadcasthost
+::1             localhost`); err != nil {
+		return newHosts()
+	}
+
+	return h
+}
+
+func newWindowsDefault() *Hosts {
+	h := newHosts()
+	if err := h.loadString(`# Copyright (c) 1993-2009 Microsoft Corp.
+#
+# This is a sample HOSTS file used by Microsoft TCP/IP for Windows.
+#
+# This file contains the mappings of IP addresses to host names. Each
+# entry should be kept on an individual line. The IP address should
+# be placed in the first column followed by the corresponding host name.
+# The IP address and the host name should be separated by at least one
+# space.
+#
+# Additionally, comments (such as these) may be inserted on individual
+# lines or following the machine name denoted by a '#' symbol.
+#
+# For example:
+#
+# localhost name resolution is handled within DNS itself.
+# 102.54.94.97 rhino.acme.com # source server
+# 38.25.63.10 x.acme.com # x client host
+# 127.0.0.1 localhost
+# ::1 localhost`); err != nil {
+		return newHosts()
+	}
+
+	return h
+}
+func newProxmoxDefault() *Hosts {
+	h := newHosts()
+	if err := h.loadString(`[::1 ip6-localhost ip6-loopback]
+fe00::0 
+ff00::0 
+ff02::1 
+ff02::2 
+ff02::3 `); err != nil {
+		return newHosts()
+	}
+
+	return h
 }
 
 func Test_NewHosts(t *testing.T) {
@@ -222,7 +280,7 @@ func TestHosts_LineWithComments(t *testing.T) {
 	}
 }
 
-func TestHostsClean(t *testing.T) {
+func TestHosts_Clean(t *testing.T) {
 	hosts := newHosts()
 	assert.Nil(t, hosts.AddRaw("127.0.0.2 prada yadda #comment1", "127.0.0.2 tada abba #comment2"))
 	hosts.Clean()
@@ -269,6 +327,12 @@ func TestHosts_HostsPerLine(t *testing.T) {
 	assert.Len(t, hosts.Lines, 3)
 	hosts.HostsPerLine(50) // all in one
 	assert.Len(t, hosts.Lines, 1)
+
+	hosts = newHosts()
+	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
+	hosts.HostsPerLine(8)
+	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
+
 }
 
 func BenchmarkHosts_Add10k(b *testing.B) {
@@ -354,4 +418,16 @@ func TestHosts_Flush(t *testing.T) {
 	// bad path can't write
 	hosts.Path = ""
 	assert.Error(t, hosts.Flush())
+}
+
+func TestHosts_Clear(t *testing.T) {
+	hosts := newHosts()
+	assert.Nil(t, hosts.Add("127.0.0.1", "yadda"))
+	assert.True(t, hosts.HasIp("127.0.0.1"))
+	assert.Len(t, hosts.Lines, 1)
+	hosts.Clear()
+	assert.Len(t, hosts.Lines, 0)
+	assert.Nil(t, hosts.Add("127.0.0.1", "yadda"))
+	assert.True(t, hosts.HasIp("127.0.0.1"))
+	assert.Len(t, hosts.Lines, 1)
 }
