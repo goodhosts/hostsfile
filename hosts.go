@@ -367,16 +367,22 @@ func (h *Hosts) SortByIp() {
 func (h *Hosts) HostsPerLine(count int) {
 	// restacks everything into 1 ip again so we can do the split, do this even if count is -1 so it can reset the slice
 	h.RemoveDuplicateIps()
+	
+	// counts lower than 1 are invalid
 	if count <= 0 {
 		return
 	}
+	
+	// set up the new hosts file lines
 	var newLines []HostsLine
 	for _, line := range h.Lines {
+		// if there are fewer hosts then the maximum append the line as is
 		if len(line.Hosts) <= count {
 			newLines = append(newLines, line)
 			continue
 		}
 
+		// otherwise loop over the hosts and create new lines
 		for i := 0; i < len(line.Hosts); i += count {
 			lineCopy := line
 			end := len(line.Hosts)
