@@ -73,6 +73,7 @@ func newWindowsDefault() *Hosts {
 
 	return h
 }
+
 func newProxmoxDefault() *Hosts {
 	h := newHosts()
 	if err := h.loadString(`[::1 ip6-localhost ip6-loopback]
@@ -80,7 +81,25 @@ fe00::0
 ff00::0 
 ff02::1 
 ff02::2 
-ff02::3 `); err != nil {
+ff02::3`); err != nil {
+		return newHosts()
+	}
+
+	return h
+}
+
+func newMAMPDefault() *Hosts {
+	h := newHosts()
+	if err := h.loadString(`127.0.0.1	scratch.test	# MAMP PRO - Do NOT remove this entry!
+::1		scratch.test	# MAMP PRO - Do NOT remove this entry!
+127.0.0.1	clean.test	# MAMP PRO - Do NOT remove this entry!
+::1		clean.test	# MAMP PRO - Do NOT remove this entry!
+127.0.0.1	cnmd.test	# MAMP PRO - Do NOT remove this entry!
+::1		cnmd.test	# MAMP PRO - Do NOT remove this entry!
+127.0.0.1	boilerplate.test	# MAMP PRO - Do NOT remove this entry!
+::1		boilerplate.test	# MAMP PRO - Do NOT remove this entry!
+127.0.0.1	macster.local	# MAMP PRO - Do NOT remove this entry!
+::1		macster.local	# MAMP PRO - Do NOT remove this entry!`); err != nil {
 		return newHosts()
 	}
 
@@ -96,6 +115,9 @@ func Test_DefaultHosts(t *testing.T) {
 
 	pve := newProxmoxDefault()
 	assert.Len(t, pve.Lines, 6)
+
+	mamp := newMAMPDefault()
+	assert.Len(t, mamp.Lines, 10)
 }
 
 func Test_NewHosts(t *testing.T) {
