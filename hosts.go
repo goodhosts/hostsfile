@@ -257,11 +257,14 @@ func (h *Hosts) Remove(ip string, hosts ...string) error {
 		return nil // no point in trying
 	}
 
-	var outputLines []HostsLine
-	for _, line := range h.Lines {
+	lines := make([]HostsLine, len(h.Lines))
+	copy(lines, h.Lines)
+	h.Clear()
+
+	for _, line := range lines {
 		// Bad lines or comments just get re-added.
 		if line.Err != nil || line.IsComment() || line.IP != ip {
-			outputLines = append(outputLines, line)
+			h.addLine(line)
 			continue
 		}
 
@@ -280,11 +283,10 @@ func (h *Hosts) Remove(ip string, hosts ...string) error {
 				newLineRaw = fmt.Sprintf("%s %s", newLineRaw, host)
 			}
 			newLine := NewHostsLine(newLineRaw)
-			outputLines = append(outputLines, newLine)
+			h.addLine(newLine)
 		}
 	}
 
-	h.Lines = outputLines
 	return nil
 }
 
@@ -342,10 +344,13 @@ func (h *Hosts) RemoveDuplicateIps() {
 	}
 }
 
+// RemoveDuplicateHosts will check each line and remove hosts if they are the same
 func (h *Hosts) RemoveDuplicateHosts() {
-	for pos, line := range h.Lines {
-		line.RemoveDuplicateHosts()
-		h.Lines[pos] = line
+	for pos := range h.Lines {
+		h.Lines[pos].RemoveDuplicateHosts()
+		for _, host := range h.Lines[pos].Hosts {
+			h.removeHostPositions(host, pos)
+		}
 	}
 }
 
@@ -489,7 +494,8 @@ func (h *Hosts) removeHostPositions(host string, pos int) {
 	h.hosts.Lock()
 	defer h.hosts.Unlock()
 	positions := h.hosts.l[host]
-	h.hosts.l[host] = removeFromSliceInt(pos, positions)
+	// remove one position from the hosts index incase two per line
+	h.hosts.l[host] = removeOneFromSliceInt(pos, positions)
 }
 
 func (h *Hosts) getIpPositions(ip string) []int {

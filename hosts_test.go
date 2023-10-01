@@ -1,10 +1,11 @@
 package hostsfile
 
 import (
+	"errors"
+	"log"
 	"math/rand"
 	"os"
 	"path/filepath"
-	"reflect"
 	"sync"
 	"testing"
 
@@ -130,11 +131,15 @@ func Test_NewHosts(t *testing.T) {
 	f, err := os.Create(expected)
 	assert.Nil(t, err)
 	defer func() {
-		f.Close()
-		os.Remove(expected)
+		if err := f.Close(); err != nil {
+			log.Panic(err)
+		}
+		if err := os.Remove(expected); err != nil {
+			log.Panic(err)
+		}
 	}()
 
-	os.Setenv("HOSTS_PATH", expected)
+	assert.Nil(t, os.Setenv("HOSTS_PATH", expected))
 	hosts, err = NewHosts()
 	assert.NoError(t, err)
 	assert.Equal(t, expected, hosts.Path)
@@ -154,15 +159,82 @@ func Test_NewCustomHosts(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func TestHostsLineIsComment(t *testing.T) {
+func TestHostsLine_IsComment(t *testing.T) {
 	comment := "   # This is a comment   "
 	line := NewHostsLine(comment)
 	assert.True(t, line.IsComment())
 }
 
-func TestNewHostsLineWithEmptyLine(t *testing.T) {
-	line := NewHostsLine("")
-	assert.Equal(t, line.Raw, "")
+func TestNewHostsLine(t *testing.T) {
+
+	var hlTests = []struct {
+		input   string
+		output  HostsLine
+		asserts func(t *testing.T, hl HostsLine)
+	}{
+		{
+			input: "",
+			output: HostsLine{
+				Raw:     "",
+				Comment: "",
+				Err:     nil,
+			},
+			asserts: func(t *testing.T, hl HostsLine) {
+				assert.False(t, hl.IsComment())
+				assert.False(t, hl.IsValid())
+			},
+		}, {
+			input: "   # This is a comment   ",
+			output: HostsLine{
+				Raw:     "   # This is a comment   ",
+				Comment: " This is a comment   ",
+				Err:     nil,
+			},
+			asserts: func(t *testing.T, hl HostsLine) {
+				assert.True(t, hl.HasComment())
+				assert.False(t, hl.IsValid())
+			},
+		}, {
+			input: "127.0.0.1 test1 test2   # This is a comment   ",
+			output: HostsLine{
+				Raw: "127.0.0.1 test1 test2   # This is a comment   ",
+				IP:  "127.0.0.1",
+				Hosts: []string{
+					"test1", "test2",
+				},
+				Comment: " This is a comment   ",
+				Err:     nil,
+			},
+			asserts: func(t *testing.T, hl HostsLine) {
+				assert.True(t, hl.HasComment())
+				assert.False(t, hl.IsMalformed())
+			},
+		}, {
+			// bad ip parse
+			input: "127.x.x.1 test1 test2   # This is a comment   ",
+			output: HostsLine{
+				Raw: "127.x.x.1 test1 test2   # This is a comment   ",
+				IP:  "127.x.x.1",
+				Hosts: []string{
+					"test1", "test2",
+				},
+				Comment: " This is a comment   ",
+				Err:     errors.New("bad hosts line: \"127.x.x.1 test1 test2   \""),
+			},
+			asserts: func(t *testing.T, hl HostsLine) {
+				assert.True(t, hl.IsValid()) // technically valid, just had an ip parse error... ?
+				assert.True(t, hl.IsMalformed())
+			},
+		},
+	}
+
+	for _, tt := range hlTests {
+		hl := NewHostsLine(tt.input)
+		assert.Equal(t, tt.output, hl)
+		if nil != tt.asserts {
+			tt.asserts(t, hl)
+		}
+	}
 }
 
 func TestHosts_Has(t *testing.T) {
@@ -172,27 +244,6 @@ func TestHosts_Has(t *testing.T) {
 	assert.False(t, hosts.Has("10.0.0.7", "shuda"))
 }
 
-func TestHosts_AddWhenIpHasOtherHosts(t *testing.T) {
-	expectedLines := []HostsLine{
-		NewHostsLine("10.0.0.7 nada yadda brada")}
-
-	hosts := newHosts()
-	assert.Nil(t, hosts.Add("127.0.0.1", "yadda"))
-	assert.Nil(t, hosts.Add("10.0.0.7", "nada", "yadda"))
-	assert.Nil(t, hosts.Add("10.0.0.7", "brada", "yadda"))
-	assert.True(t, reflect.DeepEqual(hosts.Lines, expectedLines))
-}
-
-func TestHosts_AddWhenIpDoesntExist(t *testing.T) {
-	expectedLines := []HostsLine{
-		NewHostsLine("10.0.0.7 brada yadda")}
-
-	hosts := newHosts()
-	assert.Nil(t, hosts.AddRaw("127.0.0.1 yadda"))
-	assert.Nil(t, hosts.Add("10.0.0.7", "brada", "yadda"))
-	assert.True(t, reflect.DeepEqual(hosts.Lines, expectedLines))
-}
-
 func TestHosts_Remove(t *testing.T) {
 	// when last host ip combo
 	expectedLines := []HostsLine{NewHostsLine("127.0.0.1 yadda")}
@@ -200,16 +251,14 @@ func TestHosts_Remove(t *testing.T) {
 	hosts := newHosts()
 	assert.Nil(t, hosts.AddRaw("127.0.0.1 yadda", "10.0.0.7 nada"))
 	assert.Nil(t, hosts.Remove("10.0.0.7", "nada"))
-	assert.True(t, reflect.DeepEqual(hosts.Lines, expectedLines))
+	assert.Equal(t, expectedLines, hosts.Lines)
 
 	// when ip has other hosts
-	expectedLines = []HostsLine{
-		NewHostsLine("127.0.0.1 yadda"), NewHostsLine("10.0.0.7 brada")}
-
+	expectedLines = []HostsLine{NewHostsLine("127.0.0.1 yadda"), NewHostsLine("10.0.0.7 brada")}
 	hosts = newHosts()
 	assert.Nil(t, hosts.AddRaw("127.0.0.1 yadda", "10.0.0.7 nada brada"))
 	assert.Nil(t, hosts.Remove("10.0.0.7", "nada"))
-	assert.True(t, reflect.DeepEqual(hosts.Lines, expectedLines))
+	assert.Equal(t, expectedLines, hosts.Lines)
 
 	// remove multiple entries
 	hosts = newHosts()
@@ -321,7 +370,12 @@ func TestHosts_HasIp(t *testing.T) {
 	hosts := newHosts()
 	assert.Nil(t, hosts.Add("127.0.0.1", "yadda"))
 	assert.Nil(t, hosts.Add("168.1.1.1", "yadda"))
-	assert.True(t, hosts.HasIp("127.0.0.1"))
+
+	// add should have removed yadda from 127.0.0.1
+	assert.False(t, hosts.HasIp("127.0.0.1"))
+	assert.Len(t, hosts.ips.l, 1)
+	assert.Len(t, hosts.hosts.l, 1)
+	assert.True(t, hosts.HasIp("168.1.1.1"))
 }
 
 func TestHosts_LineWithTrailingComment(t *testing.T) {
@@ -399,6 +453,38 @@ func TestHosts_Add(t *testing.T) {
 		Hosts: []string{"nada"},
 	}
 	assert.Error(t, hosts.Add("192.168.1.1", "nada"))
+
+	// reset and try adding the same hosts multiple times to two ips
+	hosts = newHosts()
+
+	// add 10 hosts
+	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
+	assert.Len(t, hosts.Lines, 1)
+	assert.Len(t, hosts.hosts.l, 10)
+	assert.Len(t, hosts.ips.l, 1)
+
+	// add the same thing twice, should be no additions.
+	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
+	assert.Len(t, hosts.Lines, 1)
+	assert.Len(t, hosts.hosts.l, 10)
+	assert.Len(t, hosts.ips.l, 1)
+
+	// add a new ip with 10 hosts, should remove first ip
+	assert.Nil(t, hosts.Add("127.0.0.3", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
+	assert.False(t, hosts.HasIp("127.0.0.2"))
+	assert.Len(t, hosts.Lines, 1)
+	assert.Len(t, hosts.hosts.l, 10)
+	assert.Len(t, hosts.ips.l, 1)
+
+	// make sure adding a duplicate host removes it form the previous ip
+	expectedLines := []HostsLine{NewHostsLine("10.0.0.7 nada yadda brada")}
+	hosts = newHosts()
+	assert.Nil(t, hosts.Add("127.0.0.1", "yadda"))
+	assert.Nil(t, hosts.Add("10.0.0.7", "nada", "yadda"))
+	assert.Nil(t, hosts.Add("10.0.0.7", "brada", "yadda"))
+	assert.Len(t, hosts.ips.l, 1)
+	assert.Len(t, hosts.hosts.l, 3)
+	assert.Equal(t, expectedLines, hosts.Lines)
 }
 
 func TestHosts_HostsPerLine(t *testing.T) {
@@ -516,4 +602,35 @@ func TestHosts_Clear(t *testing.T) {
 	assert.Nil(t, hosts.Add("127.0.0.1", "yadda"))
 	assert.True(t, hosts.HasIp("127.0.0.1"))
 	assert.Len(t, hosts.Lines, 1)
+}
+
+func TestHosts_RemoveDuplicateHosts(t *testing.T) {
+	h := newHosts()
+	assert.Nil(t, h.loadString(`127.0.0.1 test1 test1 test2 test2`))
+	assert.Len(t, h.Lines, 1)
+	assert.Len(t, h.ips.l, 1)
+	assert.Len(t, h.hosts.l, 2)
+
+	h.RemoveDuplicateHosts()
+	assert.Len(t, h.Lines, 1)
+	assert.Len(t, h.ips.l, 1)
+	assert.Len(t, h.hosts.l, 2)
+	assert.Equal(t, "127.0.0.1 test1 test2"+eol, h.String())
+
+	h = newHosts()
+	assert.Nil(t, h.loadString(`127.0.0.1 test1 test1 test2 test2`+eol+`127.0.0.2 test1 test1 test2 test2`+eol))
+	assert.Len(t, h.Lines, 2)
+	assert.Len(t, h.ips.l, 2)
+	assert.Len(t, h.hosts.l, 2)
+	assert.Len(t, h.hosts.l["test1"], 4)
+	assert.Len(t, h.hosts.l["test2"], 4)
+
+	h.RemoveDuplicateHosts()
+	assert.Len(t, h.Lines, 2)
+	assert.Len(t, h.ips.l, 2)
+	assert.Len(t, h.hosts.l, 2)
+	assert.Len(t, h.hosts.l["test1"], 2)
+	assert.Len(t, h.hosts.l["test2"], 2)
+
+	assert.Equal(t, "127.0.0.1 test1 test2"+eol+"127.0.0.2 test1 test2"+eol, h.String())
 }
