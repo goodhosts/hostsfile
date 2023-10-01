@@ -20,14 +20,15 @@ const commentChar string = "#"
 // NewHostsLine return a new instance of HostsLine.
 func NewHostsLine(raw string) HostsLine {
 	output := HostsLine{Raw: raw}
-	if output.IsComment() { //whole line is comment
-		return output
-	}
 
 	if output.HasComment() { //trailing comment
 		commentSplit := strings.Split(output.Raw, commentChar)
 		raw = commentSplit[0]
 		output.Comment = commentSplit[1]
+	}
+
+	if output.IsComment() { //whole line is comment
+		return output
 	}
 
 	fields := strings.Fields(raw)
@@ -59,16 +60,20 @@ func (l *HostsLine) ToRaw() string {
 	return fmt.Sprintf("%s %s%s", l.IP, strings.Join(l.Hosts, " "), comment)
 }
 
+// RemoveDuplicateHosts checks all hosts in a line and removes duplicates
 func (l *HostsLine) RemoveDuplicateHosts() {
 	unique := make(map[string]struct{})
-	for _, h := range l.Hosts {
-		unique[h] = struct{}{}
-	}
+	hosts := make([]string, len(l.Hosts))
+	copy(hosts, l.Hosts)
 
 	l.Hosts = []string{}
-	for k := range unique {
-		l.Hosts = append(l.Hosts, k)
+	for _, host := range hosts {
+		if _, ok := unique[host]; !ok {
+			unique[host] = struct{}{}
+			l.Hosts = append(l.Hosts, host)
+		}
 	}
+
 	l.Raw = l.ToRaw()
 }
 
