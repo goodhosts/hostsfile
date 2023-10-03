@@ -74,7 +74,7 @@ func (l *HostsLine) RemoveDuplicateHosts() {
 		}
 	}
 
-	l.Raw = l.ToRaw()
+	l.RegenRaw()
 }
 
 func (l *HostsLine) Combine(hostline HostsLine) {
@@ -84,12 +84,12 @@ func (l *HostsLine) Combine(hostline HostsLine) {
 	} else {
 		l.Comment = fmt.Sprintf("%s %s", l.Comment, hostline.Comment)
 	}
-	l.Raw = l.ToRaw()
+	l.RegenRaw()
 }
 
 func (l *HostsLine) SortHosts() {
 	sort.Strings(l.Hosts)
-	l.Raw = l.ToRaw()
+	l.RegenRaw()
 }
 
 func (l *HostsLine) IsComment() bool {
@@ -109,5 +109,5 @@ func (l *HostsLine) IsMalformed() bool {
 }
 
 func (l *HostsLine) RegenRaw() {
-	l.Raw = fmt.Sprintf("%s %s", l.IP, strings.Join(l.Hosts, " "))
+	l.Raw = l.ToRaw()
 }
