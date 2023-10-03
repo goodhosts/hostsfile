@@ -1,12 +1,8 @@
 package hostsfile
 
 import (
-<<<<<<< HEAD
 	"errors"
 	"log"
-=======
-	"fmt"
->>>>>>> bdf5a4a (additional tests)
 	"math/rand"
 	"os"
 	"path/filepath"
@@ -414,10 +410,10 @@ func TestHosts_HasIp(t *testing.T) {
 	assert.Nil(t, hosts.Add("168.1.1.1", "yadda"))
 
 	// add should have removed yadda from 127.0.0.1
-	assert.False(t, hosts.HasIp("127.0.0.1"))
+	assert.False(t, hosts.HasIP("127.0.0.1"))
 	assert.Len(t, hosts.ips.l, 1)
 	assert.Len(t, hosts.hosts.l, 1)
-	assert.True(t, hosts.HasIp("168.1.1.1"))
+	assert.True(t, hosts.HasIP("168.1.1.1"))
 }
 
 func TestHosts_LineWithTrailingComment(t *testing.T) {
@@ -513,7 +509,7 @@ func TestHosts_Add(t *testing.T) {
 
 	// add a new ip with 10 hosts, should remove first ip
 	assert.Nil(t, hosts.Add("127.0.0.3", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
-	assert.False(t, hosts.HasIp("127.0.0.2"))
+	assert.False(t, hosts.HasIP("127.0.0.2"))
 	assert.Len(t, hosts.Lines, 1)
 	assert.Len(t, hosts.hosts.l, 10)
 	assert.Len(t, hosts.ips.l, 1)
@@ -533,20 +529,41 @@ func TestHosts_HostsPerLine(t *testing.T) {
 	hosts := newHosts()
 	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
 	assert.Nil(t, hosts.Add("127.0.0.2", "host11", "host12", "host13", "host14", "host15", "host16", "host17", "host18", "host19", "hosts20"))
-	hosts.HostsPerLine(1)
+	hosts.HostsPerLine(1) // split into 20 lines
 	assert.Len(t, hosts.Lines, 20)
+	assert.Len(t, hosts.ips.l, 1)
+	assert.Len(t, hosts.hosts.l, 20)
+
+	hosts.Clear()
+	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
+	assert.Nil(t, hosts.Add("127.0.0.2", "host11", "host12", "host13", "host14", "host15", "host16", "host17", "host18", "host19", "hosts20"))
+
 	hosts.HostsPerLine(2)
 	assert.Len(t, hosts.Lines, 10)
+	assert.Len(t, hosts.ips.l, 1)
+	assert.Len(t, hosts.hosts.l, 20)
+
+	hosts.Clear()
+	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
+	assert.Nil(t, hosts.Add("127.0.0.2", "host11", "host12", "host13", "host14", "host15", "host16", "host17", "host18", "host19", "hosts20"))
+
 	hosts.HostsPerLine(9) // windows
 	assert.Len(t, hosts.Lines, 3)
+	assert.Len(t, hosts.ips.l, 1)
+	assert.Len(t, hosts.hosts.l, 20)
+
+	hosts.Clear()
+	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
+	assert.Nil(t, hosts.Add("127.0.0.2", "host11", "host12", "host13", "host14", "host15", "host16", "host17", "host18", "host19", "hosts20"))
 	hosts.HostsPerLine(50) // all in one
 	assert.Len(t, hosts.Lines, 1)
+	assert.Len(t, hosts.ips.l, 1)
+	assert.Len(t, hosts.hosts.l, 20)
 
-	hosts = newHosts()
+	hosts.Clear()
 	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
 	hosts.HostsPerLine(8)
 	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
-
 }
 
 func BenchmarkHosts_Add10k(b *testing.B) {
@@ -637,12 +654,12 @@ func TestHosts_Flush(t *testing.T) {
 func TestHosts_Clear(t *testing.T) {
 	hosts := newHosts()
 	assert.Nil(t, hosts.Add("127.0.0.1", "yadda"))
-	assert.True(t, hosts.HasIp("127.0.0.1"))
+	assert.True(t, hosts.HasIP("127.0.0.1"))
 	assert.Len(t, hosts.Lines, 1)
 	hosts.Clear()
 	assert.Len(t, hosts.Lines, 0)
 	assert.Nil(t, hosts.Add("127.0.0.1", "yadda"))
-	assert.True(t, hosts.HasIp("127.0.0.1"))
+	assert.True(t, hosts.HasIP("127.0.0.1"))
 	assert.Len(t, hosts.Lines, 1)
 }
 
@@ -675,10 +692,4 @@ func TestHosts_RemoveDuplicateHosts(t *testing.T) {
 	assert.Len(t, h.hosts.l["test2"], 2)
 
 	assert.Equal(t, "127.0.0.1 test1 test2"+eol+"127.0.0.2 test1 test2"+eol, h.String())
-}
-
-func TestHosts_Clean2(t *testing.T) {
-	winDockerDesktop := newDockerDesktopWindowsDefault()
-	winDockerDesktop.Clean()
-	fmt.Printf("%s", winDockerDesktop.String())
 }
