@@ -6,6 +6,7 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20210307081110-f21760c49a8d
 	github.com/dimchansky/utfbom v1.1.1
 	github.com/icrowley/fake v0.0.0-20221112152111-d7b7e2276db2
+	github.com/magefile/mage v1.15.0
 	github.com/stretchr/testify v1.7.5
 )
 

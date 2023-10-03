@@ -59,8 +59,9 @@ func (h *Hosts) String() string {
 	return buf.String()
 }
 
-// loadString is a helper function for testing but if we want to expose it some how it's probably safe
+// loadString is a helper function for testing but if we want to expose it somehow it's probably safe
 func (h *Hosts) loadString(content string) error {
+	h.Clear()
 	rdr := strings.NewReader(content)
 	scanner := bufio.NewScanner(utfbom.SkipOnly(rdr))
 	for scanner.Scan() {
@@ -97,9 +98,12 @@ func (h *Hosts) Load() error {
 	return scanner.Err()
 }
 
-// Flush any changes made to hosts file.
+// Flush writes to the file located at Path the contents of Lines in a hostsfile format
 func (h *Hosts) Flush() error {
-	h.preFlushClean()
+	if err := h.preFlush(); err != nil {
+		return err
+	}
+
 	file, err := os.Create(h.Path)
 	if err != nil {
 		return err
@@ -114,6 +118,10 @@ func (h *Hosts) Flush() error {
 	}
 
 	if err := w.Flush(); err != nil {
+		return err
+	}
+
+	if err := h.postFlush(); err != nil {
 		return err
 	}
 
@@ -202,11 +210,11 @@ func (h *Hosts) Clean() {
 	h.CombineDuplicateIPs()
 	h.RemoveDuplicateHosts()
 	h.SortHosts()
-	h.SortByIP()
+	h.SortIPs()
 	h.HostsPerLine(HostsPerLine)
 }
 
-// Has return a bool if ip/host combo in hosts file.
+// Has return a bool if ip/host combo exists in the Lines
 func (h *Hosts) Has(ip string, host string) bool {
 	ippos := h.ips.get(ip)
 	hostpos := h.hosts.get(host)
@@ -225,12 +233,12 @@ func (h *Hosts) HasHostname(host string) bool {
 	return len(h.hosts.get(host)) > 0
 }
 
-// Deprecated: HasIp
+// Deprecated: HasIp will be replaced by HasIP
 func (h *Hosts) HasIp(ip string) bool {
 	return h.HasIP(ip)
 }
 
-// HasIP will check the
+// HasIP will check if the ip exists
 func (h *Hosts) HasIP(ip string) bool {
 	return len(h.ips.get(ip)) > 0
 }
@@ -310,14 +318,17 @@ func (h *Hosts) RemoveByHostname(host string) error {
 	return nil
 }
 
-// RemoveByIp this got refactored and wont return an error any more
-// leaving it for stable api purposes, will be removed in a major release
-func (h *Hosts) RemoveByIp(ip string) error {
+func (h *Hosts) RemoveByIP(ip string) {
 	pos := h.ips.get(ip)
 	for _, p := range pos {
 		h.removeByPosition(p)
 	}
+}
 
+// Deprecated: RemoveByIp this got refactored and wont return an error any more
+// leaving it for stable api purposes, will be removed in a major release
+func (h *Hosts) RemoveByIp(ip string) error {
+	h.RemoveByIP(ip)
 	return nil
 }
 
@@ -337,9 +348,35 @@ func (h *Hosts) CombineDuplicateIPs() {
 	}
 	for ip, count := range ipCount {
 		if count > 1 {
-			h.combineIp(ip)
+			// todo: combine will rebuild lines and indexes, maybe rewrite to do the rebuild and call reindex?
+			h.combineIP(ip)
 		}
 	}
+}
+
+func (h *Hosts) combineIP(ip string) {
+	newLine := HostsLine{
+		IP: ip,
+	}
+
+	lines := make([]HostsLine, len(h.Lines))
+	copy(lines, h.Lines)
+
+	// clear the lines and position indexes to start over
+	h.Clear()
+	for _, line := range lines {
+		if line.IP == ip {
+			// if you find the ip combine it into newline
+			newLine.Combine(line)
+			continue
+		}
+		// add everyone else
+		h.addLine(line)
+	}
+
+	// sort the hosts and add it to the end of Lines
+	newLine.SortHosts()
+	h.addLine(newLine)
 }
 
 // RemoveDuplicateHosts will check each line and remove hosts if they are the same
@@ -355,6 +392,7 @@ func (h *Hosts) RemoveDuplicateHosts() {
 	}
 }
 
+// SortHosts will go through each line and sort the hosts in alpha order
 func (h *Hosts) SortHosts() {
 	for pos := range h.Lines {
 		h.Lines[pos].SortHosts()
@@ -363,27 +401,27 @@ func (h *Hosts) SortHosts() {
 
 // Deprecated: SortByIp switch to SortByIP
 func (h *Hosts) SortByIp() {
-	h.SortByIP()
+	h.SortIPs()
 }
 
-// SortByIp convert to net.IP and byte.Compare, maintains all comment only lines at the top
-func (h *Hosts) SortByIP() {
+// SortByIP convert to net.IP and byte.Compare, maintains all comment only lines at the top
+func (h *Hosts) SortIPs() {
 	// create a new list of unique ips, if dupe ips they will still get grouped together
-	sortedIps := make([]net.IP, 0, len(h.Lines))
+	uniqueIPs := make([]net.IP, 0, len(h.Lines))
 	unique := make(map[string]struct{})
 	for _, l := range h.Lines {
 		if _, ok := unique[l.IP]; !ok {
 			unique[l.IP] = struct{}{}
-			sortedIps = append(sortedIps, net.ParseIP(l.IP))
+			uniqueIPs = append(uniqueIPs, net.ParseIP(l.IP))
 		}
 	}
 
 	// sort the new unique list
-	sort.Slice(sortedIps, func(i, j int) bool {
-		return bytes.Compare(sortedIps[i], sortedIps[j]) < 0
+	sort.Slice(uniqueIPs, func(i, j int) bool {
+		return bytes.Compare(uniqueIPs[i], uniqueIPs[j]) < 0
 	})
 
-	// create a copy of of the lines and Clear
+	// create a copy of the lines and Clear
 	lines := make([]HostsLine, len(h.Lines))
 	copy(lines, h.Lines)
 	// clear the lines and position indexes to start over
@@ -397,7 +435,7 @@ func (h *Hosts) SortByIP() {
 	}
 
 	// loop over the sorted ips and find their line and add it
-	for _, ip := range sortedIps {
+	for _, ip := range uniqueIPs {
 		for _, l := range lines {
 			if ip.String() == l.IP {
 				h.addLine(l) // no continue to group duplicate ips
@@ -406,8 +444,8 @@ func (h *Hosts) SortByIP() {
 	}
 }
 
+// HostsPerLine checks all ips and if their host count is greater than count will split into multiple lines with max of count hosts per line
 func (h *Hosts) HostsPerLine(count int) {
-	// restacks everything into 1 ip again so we can do the split, do this even if count is -1 so it can reset the slice
 	if count <= 0 {
 		return
 	}
@@ -449,23 +487,6 @@ func (h *Hosts) HostsPerLine(count int) {
 	}
 }
 
-func (h *Hosts) combineIp(ip string) {
-	newLine := HostsLine{
-		IP: ip,
-	}
-
-	linesCopy := make([]HostsLine, len(h.Lines))
-	copy(linesCopy, h.Lines)
-	for _, line := range linesCopy {
-		if line.IP == ip {
-			newLine.Combine(line)
-		}
-	}
-	newLine.SortHosts()
-	h.removeIp(ip)
-	h.addLine(newLine)
-}
-
 // addLine ill append a new HostsLine and add it to the indexes
 func (h *Hosts) addLine(line HostsLine) {
 	h.Lines = append(h.Lines, line)
@@ -479,24 +500,13 @@ func (h *Hosts) addLine(line HostsLine) {
 	}
 }
 
+// removeByPosition will drop a line located at pos and reindex all lookups
 func (h *Hosts) removeByPosition(pos int) {
 	if pos == 0 && len(h.Lines) == 1 {
 		h.Clear()
 		return
 	}
 	h.Lines = append(h.Lines[:pos], h.Lines[pos+1:]...)
-	h.reindex()
-}
-
-func (h *Hosts) removeIp(ip string) {
-	var newLines []HostsLine
-	for _, line := range h.Lines {
-		if line.IP != ip {
-			newLines = append(newLines, line)
-		}
-	}
-
-	h.Lines = newLines
 	h.reindex()
 }
 

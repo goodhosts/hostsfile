@@ -693,3 +693,12 @@ func TestHosts_RemoveDuplicateHosts(t *testing.T) {
 
 	assert.Equal(t, "127.0.0.1 test1 test2"+eol+"127.0.0.2 test1 test2"+eol, h.String())
 }
+
+func TestHosts_CombineDuplicateIPs(t *testing.T) {
+	hosts := newHosts()
+	assert.Nil(t, hosts.loadString(`127.0.0.1 test1 test1 test2 test2`+eol+`127.0.0.1 test1 test1 test2 test2`+eol))
+
+	hosts.CombineDuplicateIPs()
+	assert.Len(t, hosts.Lines, 1)
+	assert.Equal(t, "127.0.0.1 test1 test1 test1 test1 test2 test2 test2 test2"+eol, hosts.String())
+}
