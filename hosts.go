@@ -51,10 +51,8 @@ func NewCustomHosts(osHostsFilePath string) (*Hosts, error) {
 func (h *Hosts) String() string {
 	buf := new(bytes.Buffer)
 	for _, line := range h.Lines {
-		if _, err := fmt.Fprintf(buf, "%s%s", line.ToRaw(), eol); err != nil {
-			// unlikely we will error during writing to a string buffer? maybe we dont need to do anything here
-			return err.Error()
-		}
+		// bytes buffers doesn't actually throw errors but the io.Writer interface requires it
+		fmt.Fprintf(buf, "%s%s", line.ToRaw(), eol)
 	}
 	return buf.String()
 }
@@ -178,15 +176,11 @@ func (h *Hosts) Add(ip string, hosts ...string) error {
 		hostsCopy := h.Lines[position[0]].Hosts
 		for _, addHost := range hosts {
 			if h.Has(ip, addHost) {
-				// this combo already exists
-				continue
+				continue // this combo already exists
 			}
 
 			if !govalidator.IsDNSName(addHost) {
 				return fmt.Errorf("hostname is not a valid dns name: %s", addHost)
-			}
-			if itemInSliceString(addHost, hostsCopy) {
-				continue // host exists for ip already
 			}
 
 			hostsCopy = append(hostsCopy, addHost)
