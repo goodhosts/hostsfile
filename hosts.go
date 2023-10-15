@@ -14,9 +14,11 @@ import (
 	"github.com/dimchansky/utfbom"
 )
 
+// Hosts represents hosts file with the path and parsed contents of each line
 type Hosts struct {
-	Path  string
-	Lines []HostsLine
+	Path  string      // Path to the location of the hosts file that will be loaded/flushed
+	Lines []HostsLine // Slice containing all the lines parsed from the hosts file
+
 	ips   lookup
 	hosts lookup
 }
@@ -361,7 +363,7 @@ func (h *Hosts) combineIP(ip string) {
 	for _, line := range lines {
 		if line.IP == ip {
 			// if you find the ip combine it into newline
-			newLine.Combine(line)
+			newLine.combine(line)
 			continue
 		}
 		// add everyone else

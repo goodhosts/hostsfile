@@ -1,64 +1,62 @@
-# Go library for working with a system's hostsfile
-[![codecov](https://codecov.io/gh/goodhosts/hostsfile/branch/master/graph/badge.svg?token=BJQH16QQEH)](https://codecov.io/gh/goodhosts/hostsfile)
-## Usage
+# Go package for working with a system's hostsfile
+[![codecov](https://codecov.io/gh/goodhosts/hostsfile/branch/main/graph/badge.svg?token=BJQH16QQEH)](https://codecov.io/gh/goodhosts/hostsfile)
+[![Go Reference](https://pkg.go.dev/badge/github.com/goodhosts/hostsfile.svg)](https://pkg.go.dev/github.com/goodhosts/hostsfile)
 
-Using system default hosts file
-```
-hfile, err := hostsfile.NewHosts()
+Reads the content of a file in the [hosts format](https://en.wikipedia.org/wiki/Hosts_(file)) into go structs for easy manipulation in go programs. When all changes are complete you can `Flush` the hosts file back to disk to save your changes. Supports an indexing system on both ips and hosts for quick management of large hosts files.    
+
+## Simple Usage
+Simple usage reading in your system's hosts file and adding an entry for the ip `192.168.1.1` and the host `my-hostname`
+
+```go
+package main
+
+import (
+	"log"
+	
+	"github.com/goodhosts/hostsfile"
+)
+
+func main() {
+    hosts, err := hostsfile.NewHosts()
+    if err != nil {
+        log.Fatal(err.Error())
+    }
+    if err := hosts.Add("192.168.1.1", "my-hostname"); err != nil {
+        log.Fatal(err.Error())
+    }
+    if err := hosts.Flush(); err != nil {
+        log.Fatal(err.Error())
+    }
+}
 ```
 
-Using a custom hostsfile at a specific location
+### Other Usage
+Read in a hosts file from a custom location which is not the system default, this is useful for tests or systems with non-standard hosts file locations.
 ```
-hfile, err := hostsfile.NewCustomHosts("./my-custom-hostsfile")
-```
-
-Add an ip entry with it's hosts
-```
-err := hfile.Add("192.168.1.1", "my-hostname", "another-hostname")
+hosts, err := hostsfile.NewCustomHosts("./my-custom-hostsfile")
 ```
 
-Remove an ip/host combination
+Use `Add` to put an ip and host combination in the hosts file
 ```
-err := hfile.Remove("192.168.1.1", "another-hostname")
-```
-
-Flush the hostfile changes back to disk
-```
-err := hfile.Flush()
+err := hosts.Add("192.168.1.1", "my-hostname")
 ```
 
-# Full API
+`Add` is variadic and can take multiple hosts to add for the same ip
 ```
-type Hosts
-func NewCustomHosts(osHostsFilePath string) (*Hosts, error)
-    func NewHosts() (*Hosts, error)
-    func (h *Hosts) Add(ip string, hosts ...string) error
-    func (h *Hosts) AddRaw(raw ...string) error
-    func (h *Hosts) Clean()
-    func (h *Hosts) Clear()
-    func (h *Hosts) Flush() error
-    func (h *Hosts) Has(ip string, host string) bool
-    func (h *Hosts) HasHostname(host string) bool
-    func (h *Hosts) HasIp(ip string) bool
-    func (h *Hosts) HostsPerLine(count int)
-    func (h *Hosts) IsWritable() bool
-    func (h *Hosts) Load() error
-    func (h *Hosts) Remove(ip string, hosts ...string) error
-    func (h *Hosts) RemoveByHostname(host string) error
-    func (h *Hosts) RemoveByIp(ip string) error
-    func (h *Hosts) RemoveDuplicateHosts()
-    func (h *Hosts) RemoveDuplicateIps()
-    func (h *Hosts) SortByIp()
-    func (h *Hosts) SortHosts()
-type HostsLine
-func NewHostsLine(raw string) HostsLine
-    func (l *HostsLine) Combine(hostline HostsLine)
-    func (l *HostsLine) HasComment() bool
-    func (l *HostsLine) IsComment() bool
-    func (l *HostsLine) IsMalformed() bool
-    func (l *HostsLine) IsValid() bool
-    func (l *HostsLine) RegenRaw()
-    func (l *HostsLine) RemoveDuplicateHosts()
-    func (l *HostsLine) SortHosts()
-    func (l *HostsLine) ToRaw() string
+err := hosts.Add("192.168.1.1", "my-hostname", "another-hostname")
+```
+
+Use `Remove` to drop an ip and host combination from the hosts file
+```
+err := hosts.Remove("192.168.1.1", "my-hostname")
+```
+
+`Remove` is variadic and can take multiple hosts to remove from the same ip
+```
+err := hosts.Remove("192.168.1.1", "my-hostname", "another-hostname")
+```
+
+Flush the hosts file changes back to disk
+```
+err := hosts.Flush()
 ```
