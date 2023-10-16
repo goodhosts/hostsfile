@@ -2,10 +2,12 @@ package hostsfile
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 
@@ -25,8 +27,8 @@ func randomString(n int) string {
 
 func newHosts() *Hosts {
 	return &Hosts{
-		ips:   lookup{l: make(map[string][]int)},
-		hosts: lookup{l: make(map[string][]int)},
+		ips:   newLookup(),
+		hosts: newLookup(),
 	}
 }
 
@@ -469,11 +471,18 @@ func TestHosts_Clean(t *testing.T) {
 
 func TestHosts_Add(t *testing.T) {
 	hosts := newHosts()
-	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))  // valid use with variatic args
-	assert.Error(t, assert.AnError, hosts.Add("127.0.0.2", "host11 host12 host13 host14 host15 host16 host17 host18 hosts19 hosts20")) // invalid use
+
+	assert.Error(t, hosts.Add("badip", "hosts1"))
+	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10")) // valid use with variatic args
 	assert.Len(t, hosts.Lines, 1)
+	assert.Error(t, hosts.Add("127.0.0.2", "host11 host12 host13 host14 host15 host16 host17 host18 hosts19 hosts20")) // invalid use
+	assert.Len(t, hosts.Lines, 1)
+	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
+	assert.Len(t, hosts.Lines, 1)
+
+	// add the same hosts twice (should be noop with nothing new)
 	assert.Nil(t, hosts.Add("127.0.0.3", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
-	assert.Len(t, hosts.Lines, 1)
+
 	assert.Error(t, assert.AnError, hosts.Add("127.0.0.3", "invalid hostname"))
 	assert.Error(t, assert.AnError, hosts.Add("127.0.0.3", ".invalid*hostname"))
 
@@ -510,6 +519,7 @@ func TestHosts_Add(t *testing.T) {
 	// add a new ip with 10 hosts, should remove first ip
 	assert.Nil(t, hosts.Add("127.0.0.3", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
 	assert.False(t, hosts.HasIP("127.0.0.2"))
+	assert.False(t, hosts.HasIp("127.0.0.2"))
 	assert.Len(t, hosts.Lines, 1)
 	assert.Len(t, hosts.hosts.l, 10)
 	assert.Len(t, hosts.ips.l, 1)
@@ -523,6 +533,22 @@ func TestHosts_Add(t *testing.T) {
 	assert.Len(t, hosts.ips.l, 1)
 	assert.Len(t, hosts.hosts.l, 3)
 	assert.Equal(t, expectedLines, hosts.Lines)
+}
+
+func TestHosts_AddRaw(t *testing.T) {
+	hosts := newHosts()
+
+	assert.Nil(t, hosts.AddRaw("127.0.0.1 yadda"))
+	assert.Len(t, hosts.Lines, 1)
+
+	assert.Nil(t, hosts.AddRaw("127.0.0.2 nada"))
+	assert.Len(t, hosts.Lines, 2)
+
+	assert.Nil(t, hosts.AddRaw("127.0.0.3 host1", "127.0.0.4 host2"))
+	assert.Len(t, hosts.Lines, 4)
+
+	assert.Error(t, hosts.AddRaw("badip host1"))      // fail ip parse
+	assert.Error(t, hosts.AddRaw("127.0.0.1 host1%")) // fail host DNS validation
 }
 
 func TestHosts_HostsPerLine(t *testing.T) {
@@ -563,7 +589,26 @@ func TestHosts_HostsPerLine(t *testing.T) {
 	hosts.Clear()
 	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
 	hosts.HostsPerLine(8)
+	assert.Len(t, hosts.Lines, 2)
+	assert.Len(t, hosts.ips.l, 1)
+	assert.Len(t, hosts.hosts.l, 10)
+
+	hosts.HostsPerLine(0) // noop
+	assert.Len(t, hosts.Lines, 2)
+	assert.Len(t, hosts.ips.l, 1)
+	assert.Len(t, hosts.hosts.l, 10)
+
 	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
+
+}
+
+func BenchmarkHosts_Add(b *testing.B) {
+	for _, c := range []int{10000, 25000, 50000, 100000, 250000, 500000} {
+		b.Run(fmt.Sprintf("%d", c), func(b *testing.B) {
+			benchmarkHosts_Add(c, b)
+			// mem()
+		})
+	}
 }
 
 func BenchmarkHosts_Add10k(b *testing.B) {
@@ -583,7 +628,14 @@ func BenchmarkHosts_Add250k(b *testing.B) {
 }
 
 func benchmarkHosts_Add(c int, b *testing.B) {
-	hosts, err := NewCustomHosts("hostsfile")
+	fp := "hostsfile"
+	f, err := os.Create(fp)
+	assert.Nil(b, err)
+	defer func() {
+		assert.Nil(b, f.Close())
+		assert.Nil(b, os.Remove(fp))
+	}()
+	hosts, err := NewCustomHosts(fp)
 	assert.Nil(b, err)
 	for i := 0; i < c; i++ {
 		assert.Nil(b, hosts.Add(fake.IPv4(), randomString(63)))
@@ -606,10 +658,14 @@ func BenchmarkHosts_Flush500k(b *testing.B) {
 	benchmarkHosts_Flush(50, b)
 }
 
-// benchmarks flushing a hostsfile and confirms the hashmap lookup for ips/hosts is thread save via mutex + locking
+// benchmarks flushing a hostsfile and confirms the hashmap lookup for ips/hosts is thread safe via mutex + locking
 func benchmarkHosts_Flush(c int, b *testing.B) {
 	_, err := os.Create("hostsfile")
 	assert.Nil(b, err)
+	defer func() {
+		assert.Nil(b, os.Remove("hostsfile"))
+	}()
+
 	hosts, err := NewCustomHosts("hostsfile")
 	assert.Nil(b, err)
 
@@ -626,7 +682,6 @@ func benchmarkHosts_Flush(c int, b *testing.B) {
 	wg.Wait()
 
 	assert.Nil(b, hosts.Flush())
-	assert.Nil(b, os.Remove("hostsfile"))
 }
 
 func TestHosts_Flush(t *testing.T) {
@@ -696,9 +751,45 @@ func TestHosts_RemoveDuplicateHosts(t *testing.T) {
 
 func TestHosts_CombineDuplicateIPs(t *testing.T) {
 	hosts := newHosts()
-	assert.Nil(t, hosts.loadString(`127.0.0.1 test1 test1 test2 test2`+eol+`127.0.0.1 test1 test1 test2 test2`+eol))
+	assert.Nil(t, hosts.loadString(`# comment`+eol+`127.0.0.1 test1 test1 test2 test2`+eol+`127.0.0.1 test1 test1 test2 test2`+eol))
 
 	hosts.CombineDuplicateIPs()
-	assert.Len(t, hosts.Lines, 1)
-	assert.Equal(t, "127.0.0.1 test1 test1 test1 test1 test2 test2 test2 test2"+eol, hosts.String())
+	assert.Len(t, hosts.Lines, 2)
+	assert.Equal(t, "# comment"+eol+"127.0.0.1 test1 test1 test1 test1 test2 test2 test2 test2"+eol, hosts.String())
+
+	// deprecated
+	hosts = newHosts()
+	assert.Nil(t, hosts.loadString(`# comment`+eol+`127.0.0.1 test1 test1 test2 test2`+eol+`127.0.0.1 test1 test1 test2 test2`+eol))
+	hosts.RemoveDuplicateIps()
+	assert.Len(t, hosts.Lines, 2)
+	assert.Equal(t, "# comment"+eol+"127.0.0.1 test1 test1 test1 test1 test2 test2 test2 test2"+eol, hosts.String())
+}
+
+func TestHosts_SortIPs(t *testing.T) {
+	hosts := newHosts()
+	assert.Nil(t, hosts.loadString(`# comment `+eol+`127.0.0.3 host3`+eol+`127.0.0.2 host2`+eol+`127.0.0.1 host1`+eol))
+
+	hosts.SortIPs()
+	assert.Len(t, hosts.Lines, 4)
+	assert.Equal(t, strings.Join([]string{
+		"# comment ",
+		"127.0.0.1 host1",
+		"127.0.0.2 host2",
+		"127.0.0.3 host3",
+		"",
+	}, eol), hosts.String())
+
+	// deprecated
+	hosts = newHosts()
+	assert.Nil(t, hosts.loadString(`# comment `+eol+`127.0.0.3 host3`+eol+`127.0.0.2 host2`+eol+`127.0.0.1 host1`+eol))
+
+	hosts.SortByIp()
+	assert.Len(t, hosts.Lines, 4)
+	assert.Equal(t, strings.Join([]string{
+		"# comment ",
+		"127.0.0.1 host1",
+		"127.0.0.2 host2",
+		"127.0.0.3 host3",
+		"",
+	}, eol), hosts.String())
 }
