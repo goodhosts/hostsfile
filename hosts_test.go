@@ -599,7 +599,6 @@ func TestHosts_HostsPerLine(t *testing.T) {
 	assert.Len(t, hosts.hosts.l, 10)
 
 	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
-
 }
 
 func BenchmarkHosts_Add(b *testing.B) {
@@ -720,16 +719,16 @@ func TestHosts_Clear(t *testing.T) {
 
 func TestHosts_RemoveDuplicateHosts(t *testing.T) {
 	h := newHosts()
-	assert.Nil(t, h.loadString(`127.0.0.1 test1 test1 test2 test2`))
-	assert.Len(t, h.Lines, 1)
+	assert.Nil(t, h.loadString(`127.0.0.1 test1 test1 test2 test2`+eol+`# comment`))
+	assert.Len(t, h.Lines, 2)
 	assert.Len(t, h.ips.l, 1)
 	assert.Len(t, h.hosts.l, 2)
 
 	h.RemoveDuplicateHosts()
-	assert.Len(t, h.Lines, 1)
+	assert.Len(t, h.Lines, 2)
 	assert.Len(t, h.ips.l, 1)
 	assert.Len(t, h.hosts.l, 2)
-	assert.Equal(t, "127.0.0.1 test1 test2"+eol, h.String())
+	assert.Equal(t, `127.0.0.1 test1 test2`+eol+`# comment`+eol, h.String())
 
 	h = newHosts()
 	assert.Nil(t, h.loadString(`127.0.0.1 test1 test1 test2 test2`+eol+`127.0.0.2 test1 test1 test2 test2`+eol))
