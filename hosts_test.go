@@ -598,7 +598,19 @@ func TestHosts_HostsPerLine(t *testing.T) {
 	assert.Len(t, hosts.ips.l, 1)
 	assert.Len(t, hosts.hosts.l, 10)
 
-	assert.Nil(t, hosts.Add("127.0.0.2", "host1", "host2", "host3", "host4", "host5", "host6", "host7", "host8", "host9", "hosts10"))
+	// test if multiple calls to HostsPerLine doesn't create havoc and has identical output as calling it once
+	hosts = newHosts()
+	for i := 1; i <= 50; i++ {
+		assert.Nil(t, hosts.Add("127.0.0.1", fmt.Sprintf("a%d.ddev.site", i)))
+		hosts.HostsPerLine(8) // 8
+	}
+
+	hosts2 := newHosts()
+	for i := 1; i <= 50; i++ {
+		assert.Nil(t, hosts2.Add("127.0.0.1", fmt.Sprintf("a%d.ddev.site", i)))
+	}
+	hosts2.HostsPerLine(8) // 8
+	assert.Equal(t, hosts.String(), hosts2.String())
 }
 
 func BenchmarkHosts_Add(b *testing.B) {
