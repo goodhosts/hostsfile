@@ -804,3 +804,97 @@ func TestHosts_SortIPs(t *testing.T) {
 		"",
 	}, eol), hosts.String())
 }
+
+func TestHosts_HasAll(t *testing.T) {
+	hosts := newHosts()
+	assert.Nil(t, hosts.AddRaw("127.0.0.1 host1 host2 host3"))
+
+	// All hosts exist
+	assert.True(t, hosts.HasAll("127.0.0.1", "host1", "host2"))
+	assert.True(t, hosts.HasAll("127.0.0.1", "host1", "host2", "host3"))
+
+	// One host missing
+	assert.False(t, hosts.HasAll("127.0.0.1", "host1", "host4"))
+	assert.False(t, hosts.HasAll("127.0.0.1", "host4"))
+
+	// IP doesn't exist
+	assert.False(t, hosts.HasAll("10.0.0.1", "host1"))
+
+	// Empty hosts - should check IP exists
+	assert.True(t, hosts.HasAll("127.0.0.1"))
+	assert.False(t, hosts.HasAll("10.0.0.1"))
+}
+
+func TestHosts_HasAny(t *testing.T) {
+	hosts := newHosts()
+	assert.Nil(t, hosts.AddRaw("127.0.0.1 host1 host2"))
+
+	// At least one exists
+	assert.True(t, hosts.HasAny("127.0.0.1", "host1", "host4"))
+	assert.True(t, hosts.HasAny("127.0.0.1", "host4", "host2"))
+
+	// None exist
+	assert.False(t, hosts.HasAny("127.0.0.1", "host3", "host4"))
+	assert.False(t, hosts.HasAny("10.0.0.1", "host1"))
+
+	// Empty hosts - should check IP exists
+	assert.True(t, hosts.HasAny("127.0.0.1"))
+	assert.False(t, hosts.HasAny("10.0.0.1"))
+}
+
+func TestHosts_CheckAll(t *testing.T) {
+	hosts := newHosts()
+	assert.Nil(t, hosts.AddRaw("127.0.0.1 host1 host2"))
+
+	result := hosts.CheckAll("127.0.0.1", "host1", "host2", "host3")
+	assert.True(t, result["host1"])
+	assert.True(t, result["host2"])
+	assert.False(t, result["host3"])
+
+	// Empty result for IP that doesn't exist
+	result = hosts.CheckAll("10.0.0.1", "host1")
+	assert.False(t, result["host1"])
+}
+
+func TestHosts_Backup(t *testing.T) {
+	// Create a temporary hosts file
+	fp := filepath.Join(os.TempDir(), fmt.Sprintf("hostsfile-test-%s", randomString(8)))
+	f, err := os.Create(fp)
+	assert.Nil(t, err)
+	defer os.Remove(fp)
+
+	// Write test content
+	testContent := "127.0.0.1 localhost\n192.168.1.1 testhost\n"
+	_, err = f.WriteString(testContent)
+	assert.Nil(t, err)
+	assert.Nil(t, f.Close())
+
+	// Load the hosts file
+	hosts, err := NewCustomHosts(fp)
+	assert.Nil(t, err)
+
+	// Create backup
+	err = hosts.Backup()
+	assert.Nil(t, err)
+	defer os.Remove(hosts.BackupPath())
+
+	// Verify backup exists and has correct content
+	backupData, err := os.ReadFile(hosts.BackupPath())
+	assert.Nil(t, err)
+	assert.Equal(t, testContent, string(backupData))
+
+	// Test BackupTo with custom path
+	customBackupPath := fp + ".custom.bak"
+	err = hosts.BackupTo(customBackupPath)
+	assert.Nil(t, err)
+	defer os.Remove(customBackupPath)
+
+	customBackupData, err := os.ReadFile(customBackupPath)
+	assert.Nil(t, err)
+	assert.Equal(t, testContent, string(customBackupData))
+}
+
+func TestHosts_BackupPath(t *testing.T) {
+	hosts := &Hosts{Path: "/etc/hosts"}
+	assert.Equal(t, "/etc/hosts.bak", hosts.BackupPath())
+}
